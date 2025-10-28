@@ -62,7 +62,7 @@ const LoginForm = () => {
         formDataToSend.append('email', formData.username); // username field contains email for employee login
         formDataToSend.append('password', formData.password);
         
-        const response = await fetch('http://localhost:8000/auth/employee/token', {
+        const response = await fetch(`${API_BASE_URL}/auth/employee/token`, {
           method: 'POST',
           body: formDataToSend,
         });

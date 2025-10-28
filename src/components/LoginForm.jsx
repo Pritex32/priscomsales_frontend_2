@@ -31,7 +31,7 @@ const LoginForm = () => {
         formDataToSend.append('username', formData.username);
         formDataToSend.append('password', formData.password);
         
-        const response = await fetch('https://priscomsales-software.onrender.com//auth/token', {
+        const response = await fetch('https://priscomsales-software.onrender.com/auth/token', {
           method: 'POST',
           body: formDataToSend,
         });
@@ -63,7 +63,7 @@ const LoginForm = () => {
         formDataToSend.append('email', formData.username); // username field contains email for employee login
         formDataToSend.append('password', formData.password);
         
-        const response = await fetch('https://priscomsales-software.onrender.com//auth/employee/token', {
+        const response = await fetch('https://priscomsales-software.onrender.com/auth/employee/token', {
           method: 'POST',
           body: formDataToSend,
         });

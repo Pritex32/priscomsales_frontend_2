@@ -240,7 +240,7 @@ const RegisterForm = () => {
               <label htmlFor="terms" className="text-emerald-100 text-sm">
                 I accept the{' '}
                 <a 
-                  href="http://localhost:8000/auth/terms" 
+                  href={`${REACT_APP_API_URL}/auth/terms`} 
                   target="_blank" 
                   rel="noreferrer" 
                   className="text-white hover:text-emerald-200 font-medium hover:underline"

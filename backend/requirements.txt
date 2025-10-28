@@ -1,5 +1,5 @@
 ﻿absl-py==2.3.1
-aider-chat==0.86.1
+
 aiofiles==25.1.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
@@ -24,7 +24,7 @@ bubus==1.5.6
 cachetools==5.5.2
 cdp-use==1.4.3
 certifi==2025.8.3
-cffi==2.0.0
+
 chardet==5.2.0
 charset-normalizer==3.4.2
 click==8.2.1
@@ -277,4 +277,5 @@ yarl==1.20.1
 zipp==3.23.0
 zope.event==5.1.1
 zope.interface==7.2
+
 

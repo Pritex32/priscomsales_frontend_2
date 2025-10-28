@@ -30,7 +30,7 @@ const LoginForm = () => {
         formDataToSend.append('username', formData.username);
         formDataToSend.append('password', formData.password);
         
-        const response = await fetch('http://localhost:8000/auth/token', {
+        const response = await fetch(`${API_BASE_URL}/auth/token`, {
           method: 'POST',
           body: formDataToSend,
         });

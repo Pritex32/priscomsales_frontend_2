@@ -2,8 +2,7 @@ import axios from 'axios';
 import { isTokenExpired } from '../utils/tokenUtils';
 
 // FastAPI serves routers at root (e.g., /auth, /sales, /b2b, ...)
-const API_BASE_URL = 'http://localhost:8000';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {

@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../store/authSlice';
 import { decodeToken } from '../utils/tokenUtils';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const LoginForm = () => {
   const [formData, setFormData] = useState({
@@ -30,7 +31,7 @@ const LoginForm = () => {
         formDataToSend.append('username', formData.username);
         formDataToSend.append('password', formData.password);
         
-        const response = await fetch('https://priscomsales-software.onrender.com/auth/token', {
+        const response = await fetch(`${API_BASE_URL}/auth/token`, {
           method: 'POST',
           body: formDataToSend,
         });

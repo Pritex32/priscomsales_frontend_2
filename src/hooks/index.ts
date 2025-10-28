@@ -1,0 +1,1 @@
+export { usePersistentTab } from './usePersistentTab';

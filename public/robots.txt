@@ -1,0 +1,13 @@
+# robots.txt for priscomsales.online
+User-agent: *
+Allow: /
+
+# Disallow sensitive paths
+Disallow: /api/
+Disallow: /.env
+Disallow: /admin/
+Disallow: /login
+Disallow: /dashboard
+
+# Sitemap location
+Sitemap: https://priscomsales.online/sitemap.xml

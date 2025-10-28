@@ -1,0 +1,39 @@
+/* Basic shell styling for header/nav and layout, complements Tailwind classes */
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: linear-gradient(90deg, #0f172a, #1e293b);
+  color: #fff;
+  padding: 8px 16px;
+  display: none; /* Legacy header hidden; modern header rendered in AppContent */
+}
+
+.app-header .logo {
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+}
+
+.app-header nav ul {
+  list-style: none;
+  display: flex;
+  gap: 12px;
+}
+
+.app-header nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+}
+
+.app-header nav a:hover {
+  color: #34d399;
+}
+
+main {
+  flex: 1;
+}

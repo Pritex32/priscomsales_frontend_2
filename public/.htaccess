@@ -1,0 +1,26 @@
+# Security - Prevent access to sensitive files
+<FilesMatch "^\.env">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(md|json|lock|py|log)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Sitemap and robots.txt accessibility
+<Files "robots.txt">
+    Allow from all
+</Files>
+<Files "sitemap.xml">
+    Allow from all
+</Files>

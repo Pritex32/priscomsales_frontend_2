@@ -24,6 +24,7 @@ const ResendVerification = () => {
     setMessage('');
 
     try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://priscomsales.online/api';
       const response = await api.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`);
       
       setStatus('success');
@@ -132,7 +133,7 @@ const ResendVerification = () => {
           </p>
           <p className="text-sm text-gray-600 text-center mt-2">
             Need help?{' '}
-            <a href="mailto:support@priscomsales.online" className="text-green-600 hover:text-green-700 font-medium">
+            <a href="mailto:priscomac@priscomsales.online" className="text-green-600 hover:text-green-700 font-medium">
               Contact Support
             </a>
           </p>

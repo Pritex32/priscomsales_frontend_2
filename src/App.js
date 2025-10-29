@@ -62,6 +62,7 @@ function App() {
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegisterForm />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/auth/verify" element={<VerifyEmail />} />
           <Route path="/dashboard/:page" element={<Dashboard />} />
           <Route path="/restock" element={
             <ProtectedRoute resourceKey="restock.page.access">

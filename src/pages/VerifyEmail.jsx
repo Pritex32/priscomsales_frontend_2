@@ -24,7 +24,7 @@ const VerifyEmail = () => {
 
       try {
         // Use axios directly without interceptors to avoid auth token requirement
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://priscomsales.online/api';
         console.log('API Base URL:', API_BASE_URL);
         console.log('Making verification request...');
         const response = await api.get(`/auth/verify?token=${token}`);

@@ -16,6 +16,12 @@ Options -Indexes
 RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# Redirect all routes to index.html so React Router can handle them
+RewriteBase /
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
 
 # Sitemap and robots.txt accessibility
 <Files "robots.txt">

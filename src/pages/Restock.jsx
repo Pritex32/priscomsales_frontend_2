@@ -18,6 +18,7 @@ import {
 import apiService from '../services/api';
 import { toast } from 'react-toastify';
 import Tooltip from '../components/Tooltip';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const Restock = () => {
   // State management
@@ -138,7 +139,7 @@ const Restock = () => {
       setApiStatus('failed');
       
       if (error.code === 'ERR_NETWORK') {
-        toast.error('Cannot connect to backend server. Make sure it\'s running on localhost:8000');
+        toast.error(`Cannot connect to backend server. Make sure it\'s running on ${REACT_APP_API_URL}`);
       } else {
         toast.error('API connection failed. Check console for details.');
       }
@@ -855,7 +856,7 @@ const Restock = () => {
                 apiStatus === 'auth_failed' ? 'text-orange-600' :
                 apiStatus === 'failed' ? 'text-red-600' : 'text-gray-600'
               }`}>{apiStatus.toUpperCase().replace('_', ' ')}</span></p>
-              <p>Base URL: <span className="font-mono text-xs">localhost:8000</span></p>
+              <p>Base URL: <span className="font-mono text-xs">{REACT_APP_API_URL}</span></p>
               <p>Token: <span className="font-mono">{localStorage.getItem('login_token') ? '✅' : '❌'}</span></p>
             </div>
             

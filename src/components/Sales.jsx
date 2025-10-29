@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { decodeToken } from '../utils/tokenUtils';
 import { usePermission } from '../hooks/usePermission';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const TabButton = ({ active, onClick, children, title }) => (
   <button onClick={onClick} title={title} className={`px-4 py-2 rounded-md text-sm font-medium ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{children}</button>
@@ -1214,7 +1215,7 @@ const Sales = () => {
       
       // Use plain fetch() with authentication token
       const token = localStorage.getItem('login_token');
-      const response = await fetch('http://localhost:8000/sales/receipt/pdf', {
+      const response = await fetch(`${REACT_APP_API_URL}/sales/receipt/pdf`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

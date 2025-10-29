@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { usePermission } from '../hooks/usePermission';
-
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 const formatDate = (d) => {
   if (!d) return '';
   if (typeof d === 'string') return d;
@@ -345,7 +345,7 @@ const Inventory = () => {
       }
 
       console.log('Sending PATCH request to:', `/inventory/update/${adjustItemId}`);
-      console.log('Full URL:', `http://localhost:8000/inventory/update/${adjustItemId}`);
+      console.log('Full URL:', `${REACT_APP_API_URL}/inventory/update/${adjustItemId}`);
       console.log('Payload:', JSON.stringify(payload, null, 2));
       console.log('Request headers:', api.defaults.headers);
       
@@ -422,7 +422,7 @@ const Inventory = () => {
         errorMsg = e.response.data?.detail || `Server error: ${e.response.status}`;
       } else if (e?.request) {
         // Request made but no response
-        errorMsg = 'Network error: Cannot reach server. Is the backend running on http://localhost:8000?';
+        errorMsg = 'Network error: Cannot reach server. Is the backend running on ${REACT_APP_API_URL}?';
       } else {
         // Something else happened
         errorMsg = e?.message || 'Unknown error occurred';

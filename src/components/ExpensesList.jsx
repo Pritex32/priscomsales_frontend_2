@@ -40,7 +40,8 @@ const ExpensesList = ({ onCreateNew, onEdit, onAddPayment }) => {
     try {
       const skip = (currentPage - 1) * itemsPerPage;
       const response = await expensesApi.getExpenses(skip, itemsPerPage);
-      setExpenses(response.data || []);
+      // Backend returns {data: [...], total, skip, limit, has_more}
+      setExpenses(response.data?.data || []);
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to fetch expenses');
     } finally {
@@ -52,7 +53,8 @@ const ExpensesList = ({ onCreateNew, onEdit, onAddPayment }) => {
   const fetchPendingExpenses = async () => {
     try {
       const response = await expensesApi.getPendingExpenses();
-      setPendingExpenses(response.data || []);
+      // Backend returns {data: [...], total, skip, limit, has_more}
+      setPendingExpenses(response.data?.data || []);
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to fetch pending expenses');
     }

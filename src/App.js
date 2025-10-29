@@ -10,6 +10,7 @@ import Restock from './pages/Restock';
 import Expenses from './pages/Expenses';
 import Requisitions from './pages/Requisitions';
 import VerifyEmail from './pages/VerifyEmail';
+import ResendVerification from './pages/ResendVerification';
 
 // Import only working components
 import LoginForm from './components/LoginForm';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
-import api from '../services/api';
+import axios from 'axios';
 
 const ResendVerification = () => {
   const navigate = useNavigate();

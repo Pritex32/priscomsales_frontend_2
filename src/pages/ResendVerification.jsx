@@ -24,9 +24,7 @@ const ResendVerification = () => {
     setMessage('');
 
     try {
-      const response = await api.post('/auth/resend-verification', null, {
-        params: { email }
-      });
+      const response = await api.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`);
       
       setStatus('success');
       setMessage(response.data?.msg || 'Verification email sent successfully!');

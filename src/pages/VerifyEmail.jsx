@@ -12,14 +12,21 @@ const VerifyEmail = () => {
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get('token');
+      console.log('VerifyEmail component loaded');
+      console.log('Token from URL:', token);
       
       if (!token) {
+        console.log('No token found in URL');
         setStatus('error');
         setMessage('Invalid verification link. No token provided.');
         return;
       }
 
       try {
+        // Use axios directly without interceptors to avoid auth token requirement
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        console.log('API Base URL:', API_BASE_URL);
+        console.log('Making verification request...');
         const response = await api.get(`/auth/verify?token=${token}`);
         setStatus('success');
         setMessage(response.data?.msg || 'Email verified successfully!');

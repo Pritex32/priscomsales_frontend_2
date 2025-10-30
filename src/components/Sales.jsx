@@ -1782,21 +1782,56 @@ const Sales = () => {
             </div>
 
             {/* Item selector dropdown (auto-add, no duplicates) */}
-            <div>
+            <div className="relative">{/* ✅ added relative for dropdown positioning */}
               <label className="block text-xs text-gray-600 mb-1">Or Select Item to Add</label>
-              <select
+              {/* 🔹 Replaced <select> with a text <input> to allow typing */}
+
+              <input
+                type="text"
                 value={saleSelectName}
-                onChange={e => handleSaleItemSelect(e.target.value)}
+                onChange={e => setSaleSelectName(e.target.value)}  {/* ✅ changed: now updates search text */}
+                placeholder="Type to search item..." 
                 disabled={!selectedWarehouse || loading}
                 className="border rounded px-3 py-2 w-full text-sm"
-              >
-                <option value="">-- Select an item to add --</option>
-                {saleAvailableNames.map(name => <option key={name} value={name}>{name}</option>)}
-              </select>
+              />
+                
+              {/* 🔹 Added a dropdown results list below the input */}
+              {saleSelectName && (                                   {/* ✅ only show if user typed something */}
+                <div className="absolute z-10 bg-white border rounded mt-1 shadow-md w-full max-h-40 overflow-y-auto text-sm">
+                  {saleAvailableNames
+                    .filter(name =>                                   {/* ✅ filter list by typed text */}
+                      name.toLowerCase().includes(saleSelectName.toLowerCase())
+                    )
+                    .map(name => (
+                      <div
+                        key={name}
+                        onClick={() => {                               {/* ✅ clicking triggers existing handler */}
+                          handleSaleItemSelect(name)
+                          setSaleSelectName("")                        {/* ✅ clear search input after selection */}
+                        }}
+                        className="px-3 py-2 hover:bg-indigo-100 cursor-pointer"
+                      >
+                        {name}
+                      </div>
+                    ))
+                  }
+                  {/* ✅ added: handle case where no matches found */}
+                  {saleAvailableNames.filter(name =>
+                    name.toLowerCase().includes(saleSelectName.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-3 py-2 text-gray-500">No matching items</div>
+                  )}
+                </div>
+              )}
+
+              {/* ✅ updated helper text slightly */}
               <div className="text-xs text-gray-500 mt-1">
-                Items are added automatically. Selecting an existing item increases its quantity.
+                Start typing to search. Selecting an existing item increases its quantity.
               </div>
             </div>
+                                  
+              
+               
             
             {/* Items Table Header */}
             <div className="bg-gray-50 rounded p-3">

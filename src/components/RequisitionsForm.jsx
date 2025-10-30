@@ -160,7 +160,7 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { item: '', quantity: 1 }]
+      items: [{ item: '', quantity: 1 }, ...prev.items]
     }));
     setItemSearches([...itemSearches, '']);
     setShowItemDropdowns([...showItemDropdowns, false]);

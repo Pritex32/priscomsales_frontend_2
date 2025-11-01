@@ -787,7 +787,7 @@ const Sales = () => {
         
         // VAT and discount
         apply_vat: applyVAT,
-        vat_rate: Number(vatRate) || 7.5,
+        vat_rate: applyVAT ? (Number(vatRate) || 0) : 0,
         discount_type: discountType,
         discount_value: Number(discountValue) || 0,
         
@@ -971,7 +971,7 @@ const Sales = () => {
         customer_phone: proformaPhone || null,
         // VAT/discount config - server computes amounts
         apply_vat: proformaApplyVAT,
-        vat_rate: Number(proformaVatRate) || 7.5,
+        vat_rate: proformaApplyVAT ? (Number(proformaVatRate) || 0) : 0,
         discount_type: proformaDiscountType,
         discount_value: Number(proformaDiscountValue) || 0,
         items: proformaItems.map(it => {
@@ -2551,10 +2551,25 @@ const Sales = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center">
-                <input type="checkbox" checked={proformaApplyVAT} onChange={e => setProformaApplyVAT(e.target.checked)} className="mr-2" />
-                <label className="text-sm">Apply VAT</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* ✅ FIXED: VAT Toggle - Responsive toggle button */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProformaApplyVAT(!proformaApplyVAT)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    proformaApplyVAT ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      proformaApplyVAT ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-sm font-medium text-gray-700">
+                  {proformaApplyVAT ? 'VAT Applied' : 'VAT Not Applied'}
+                </span>
               </div>
               {proformaApplyVAT && (
                 <div>

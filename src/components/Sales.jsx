@@ -82,10 +82,22 @@ const Sales = () => {
 
   // Sale item add via dropdown (prevent duplicates & auto-increment)
   const [saleSelectName, setSaleSelectName] = useState('');
+  const [saleItemSearchInput, setSaleItemSearchInput] = useState('');
+  const [showSaleItemSuggestions, setShowSaleItemSuggestions] = useState(false);
+  
   const saleAvailableNames = useMemo(() => {
     const selected = new Set(saleItems.map(it => (it.item_name || '').trim()).filter(Boolean));
     return Object.keys(inventoryItems).filter(n => !selected.has(n));
   }, [inventoryItems, saleItems]);
+  
+  // Filter items based on search input for autocomplete
+  const saleSuggestedItems = useMemo(() => {
+    if (!saleItemSearchInput.trim()) return saleAvailableNames;
+    const searchLower = saleItemSearchInput.toLowerCase().trim();
+    return saleAvailableNames.filter(name =>
+      name.toLowerCase().includes(searchLower)
+    );
+  }, [saleItemSearchInput, saleAvailableNames]);
 
   // Proforma state
   const [proformaItems, setProformaItems] = useState([]);
@@ -109,10 +121,22 @@ const Sales = () => {
   const [proformaPage, setProformaPage] = useState(1);
   // Proforma item add via dropdown (prevent duplicates & auto-increment)
   const [proformaSelectName, setProformaSelectName] = useState('');
+  const [proformaItemSearchInput, setProformaItemSearchInput] = useState('');
+  const [showProformaItemSuggestions, setShowProformaItemSuggestions] = useState(false);
+  
   const proformaAvailableNames = useMemo(() => {
     const selected = new Set(proformaItems.map(it => (it.item_name || '').trim()).filter(Boolean));
     return Object.keys(inventoryItems).filter(n => !selected.has(n));
   }, [inventoryItems, proformaItems]);
+  
+  // Filter items based on search input for autocomplete
+  const proformaSuggestedItems = useMemo(() => {
+    if (!proformaItemSearchInput.trim()) return proformaAvailableNames;
+    const searchLower = proformaItemSearchInput.toLowerCase().trim();
+    return proformaAvailableNames.filter(name =>
+      name.toLowerCase().includes(searchLower)
+    );
+  }, [proformaItemSearchInput, proformaAvailableNames]);
 
   // Proforma conversion modal state
   const [showConversionModal, setShowConversionModal] = useState(false);
@@ -848,6 +872,34 @@ const Sales = () => {
 
   const removeProformaItem = (idx) => {
     setProformaItems(proformaItems.filter((_, i) => i !== idx));
+  };
+
+  // Handle proforma item selection from autocomplete (auto-add, no duplicates, increment qty)
+  const handleProformaItemSelect = (selectedName) => {
+    if (!selectedName) return;
+    const trimmed = selectedName.trim();
+    if (!trimmed) return;
+    
+    // Check if item already exists
+    const existingIdx = proformaItems.findIndex(it => (it.item_name || '').trim() === trimmed);
+    if (existingIdx !== -1) {
+      // Item exists, increment quantity and move to top
+      const updated = [...proformaItems];
+      const updatedItem = { ...updated[existingIdx], quantity: (Number(updated[existingIdx].quantity) || 0) + 1 };
+      updated.splice(existingIdx, 1); // Remove from current position
+      setProformaItems([updatedItem, ...updated]); // Add to top
+    } else {
+      // Add new item to top
+      const inv = inventoryItems[trimmed] || {};
+      setProformaItems([{
+        item_name: trimmed,
+        quantity: 1,
+        unit_price: inv.price || 0,
+        item_id: inv.item_id,
+      }, ...proformaItems]);
+    }
+    // Reset search input
+    setProformaItemSearchInput('');
   };
 
   const updateProformaItem = (idx, field, value) => {
@@ -1781,57 +1833,54 @@ const Sales = () => {
               </button>
             </div>
 
-            {/* Item selector dropdown (auto-add, no duplicates) */}
-            <div className="relative">{/* ✅ added relative for dropdown positioning */}
-              <label className="block text-xs text-gray-600 mb-1">Or Select Item to Add</label>
-              {/* 🔹 Replaced <select> with a text <input> to allow typing */}
-
+            {/* Item selector with autocomplete (auto-add, no duplicates) */}
+            <div className="relative">
+              <label className="block text-xs text-gray-600 mb-1">Or Type to Search and Select Item</label>
               <input
                 type="text"
-                value={saleSelectName}
-                onChange={e => setSaleSelectName(e.target.value)}  {/* ✅ changed: now updates search text */}
-                placeholder="Type to search item..." 
+                value={saleItemSearchInput}
+                onChange={e => {
+                  setSaleItemSearchInput(e.target.value);
+                  setShowSaleItemSuggestions(true);
+                }}
+                onFocus={() => setShowSaleItemSuggestions(true)}
+                onBlur={() => {
+                  // Delay to allow click on suggestion
+                  setTimeout(() => setShowSaleItemSuggestions(false), 200);
+                }}
                 disabled={!selectedWarehouse || loading}
                 className="border rounded px-3 py-2 w-full text-sm"
+                placeholder="Type item name to search..."
               />
-                
-              {/* 🔹 Added a dropdown results list below the input */}
-              {saleSelectName && (                                   {/* ✅ only show if user typed something */}
-                <div className="absolute z-10 bg-white border rounded mt-1 shadow-md w-full max-h-40 overflow-y-auto text-sm">
-                  {saleAvailableNames
-                    .filter(name =>                                   {/* ✅ filter list by typed text */}
-                      name.toLowerCase().includes(saleSelectName.toLowerCase())
-                    )
-                    .map(name => (
-                      <div
-                        key={name}
-                        onClick={() => {                               {/* ✅ clicking triggers existing handler */}
-                          handleSaleItemSelect(name)
-                          setSaleSelectName("")                        {/* ✅ clear search input after selection */}
-                        }}
-                        className="px-3 py-2 hover:bg-indigo-100 cursor-pointer"
-                      >
-                        {name}
-                      </div>
-                    ))
-                  }
-                  {/* ✅ added: handle case where no matches found */}
-                  {saleAvailableNames.filter(name =>
-                    name.toLowerCase().includes(saleSelectName.toLowerCase())
-                  ).length === 0 && (
-                    <div className="px-3 py-2 text-gray-500">No matching items</div>
+              
+              {/* Autocomplete Suggestions Dropdown */}
+              {showSaleItemSuggestions && saleSuggestedItems.length > 0 && saleItemSearchInput.trim() && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {saleSuggestedItems.slice(0, 10).map((name, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        handleSaleItemSelect(name);
+                        setSaleItemSearchInput('');
+                        setShowSaleItemSuggestions(false);
+                      }}
+                      className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-b-0"
+                    >
+                      {name}
+                    </div>
+                  ))}
+                  {saleSuggestedItems.length > 10 && (
+                    <div className="px-3 py-2 text-xs text-gray-500 italic">
+                      +{saleSuggestedItems.length - 10} more items... Keep typing to narrow down
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* ✅ updated helper text slightly */}
+              
               <div className="text-xs text-gray-500 mt-1">
-                Start typing to search. Selecting an existing item increases its quantity.
+                Type to search, then click to add. Items are added at the top. Selecting an existing item increases its quantity.
               </div>
             </div>
-                                  
-              
-               
             
             {/* Items Table Header */}
             <div className="bg-gray-50 rounded p-3">
@@ -2050,9 +2099,24 @@ const Sales = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="flex items-center">
-              <input type="checkbox" checked={applyVAT} onChange={e => setApplyVAT(e.target.checked)} className="mr-2" />
-              <label className="text-sm">Apply VAT</label>
+            {/* ✅ FIXED: VAT Toggle - Now properly toggleable */}
+            <div className="flex items-center gap-3">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyVAT}
+                  onChange={e => {
+                    const newValue = e.target.checked;
+                    console.log('VAT toggle changed:', newValue);
+                    setApplyVAT(newValue);
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700">
+                  {applyVAT ? 'VAT Applied' : 'VAT Not Applied'}
+                </span>
+              </label>
             </div>
             {applyVAT && (
               <div>
@@ -2353,41 +2417,51 @@ const Sales = () => {
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Items *</label>
 
-              {/* Quick add: select item to auto-add (prevents duplicates) */}
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-8">
-                  <label className="block text-xs text-gray-600 mb-1">Select item to add</label>
-                  <select
-                    value={proformaSelectName}
-                    onChange={(e)=>{
-                      const name = e.target.value;
-                      setProformaSelectName('');
-                      if (!name) return;
-                      const inv = inventoryItems[name];
-                      if (!inv) return;
-                      setProformaItems(prev => {
-                        const idx = prev.findIndex(it => it.item_name === name);
-                        if (idx >= 0) {
-                          // Item exists, increment quantity and move to top
-                          const clone = [...prev];
-                          const q = Number(clone[idx].quantity)||0;
-                          const updatedItem = { ...clone[idx], quantity: q+1 };
-                          clone.splice(idx, 1); // Remove from current position
-                          return [updatedItem, ...clone]; // Add to top
-                        }
-                        // New item - add to top
-                        return [{ item_name: name, quantity: 1, unit_price: Number(inv.price)||0, item_id: inv.item_id }, ...prev];
-                      });
-                    }}
-                    className="border rounded px-3 py-2 w-full text-sm"
-                    disabled={!selectedWarehouse}
-                  >
-                    <option value="">-- Select item --</option>
-                    {proformaAvailableNames.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Items are added automatically at the top. Selecting an existing item increases its quantity.
+              {/* Item selector with autocomplete (auto-add, no duplicates) */}
+              <div className="relative">
+                <label className="block text-xs text-gray-600 mb-1">Type to Search and Select Item</label>
+                <input
+                  type="text"
+                  value={proformaItemSearchInput}
+                  onChange={e => {
+                    setProformaItemSearchInput(e.target.value);
+                    setShowProformaItemSuggestions(true);
+                  }}
+                  onFocus={() => setShowProformaItemSuggestions(true)}
+                  onBlur={() => {
+                    // Delay to allow click on suggestion
+                    setTimeout(() => setShowProformaItemSuggestions(false), 200);
+                  }}
+                  disabled={!selectedWarehouse || loading}
+                  className="border rounded px-3 py-2 w-full text-sm"
+                  placeholder="Type item name to search..."
+                />
+                
+                {/* Autocomplete Suggestions Dropdown */}
+                {showProformaItemSuggestions && proformaSuggestedItems.length > 0 && proformaItemSearchInput.trim() && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {proformaSuggestedItems.slice(0, 10).map((name, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          handleProformaItemSelect(name);
+                          setShowProformaItemSuggestions(false);
+                        }}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-b-0"
+                      >
+                        {name}
+                      </div>
+                    ))}
+                    {proformaSuggestedItems.length > 10 && (
+                      <div className="px-3 py-2 text-xs text-gray-500 italic">
+                        +{proformaSuggestedItems.length - 10} more items... Keep typing to narrow down
+                      </div>
+                    )}
                   </div>
+                )}
+                
+                <div className="text-xs text-gray-500 mt-1">
+                  Type to search, then click to add. Items are added at the top. Selecting an existing item increases its quantity.
                 </div>
               </div>
 
@@ -3094,3 +3168,4 @@ const Sales = () => {
 };
 
 export default Sales;
+

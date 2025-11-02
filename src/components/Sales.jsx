@@ -3015,17 +3015,25 @@ const Sales = () => {
                               <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm">
                                 {saleId ? '🛒 Sale' : purchaseId ? '📦 Purchase' : '💸 Expense'}
                               </span>
-                              {tx.itemCount > 1 && (
-                                <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                                  {tx.itemCount} items
+                              {tx.item_count > 1 && (
+                                <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-medium">
+                                  📦 {tx.item_count} items
                                 </span>
                               )}
                             </div>
                         
                         {saleId && (
-                          <div>
-                            <span className="font-semibold text-gray-700">Customer:</span> {customerName}
-                          </div>
+                          <>
+                            <div>
+                              <span className="font-semibold text-gray-700">Customer:</span> {customerName}
+                            </div>
+                            {tx.items_summary && (
+                              <div>
+                                <span className="font-semibold text-gray-700">Items:</span>
+                                <span className="text-sm text-gray-600 ml-1">{tx.items_summary}</span>
+                              </div>
+                            )}
+                          </>
                         )}
                         {purchaseId && (
                           <div>
@@ -3285,15 +3293,24 @@ const Sales = () => {
                                   record_id: recordId,
                                   amount: paymentAmount,
                                   payment_method: paymentMethod || 'cash',
-                                  notes: `${updateType === 'full' ? 'Full' : 'Partial'} payment via dashboard`,
+                                  notes: `${updateType === 'full' ? 'Full' : 'Partial'} payment via dashboard${tx.item_count > 1 ? ` (${tx.item_count} items)` : ''}`,
                                   transaction_date: transactionDate
                                 };
                                 
-                                console.log('Submitting payment:', paymentPayload);
+                                console.log('Submitting payment for grouped transaction:', paymentPayload);
+                                console.log('Transaction has', tx.item_count || 1, 'items');
+                                
                                 const response = await api.post('/sales/payments', paymentPayload);
                                 
                                 const newStatus = response.data?.new_status || 'unknown';
-                                setSuccess(`✅ Payment updated! New status: ${newStatus.toUpperCase()}`);
+                                let successMsg = `✅ Payment updated! New status: ${newStatus.toUpperCase()}`;
+                                
+                                // Add info about grouped items
+                                if (tx.item_count > 1) {
+                                  successMsg += `\n📦 All ${tx.item_count} items in this transaction have been updated.`;
+                                }
+                                
+                                setSuccess(successMsg);
                                 
                                 // Refresh pending list
                                 await loadPending();

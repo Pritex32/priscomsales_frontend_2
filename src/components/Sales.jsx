@@ -60,8 +60,10 @@ const Sales = () => {
   const [filtered, setFiltered] = useState([]);
   const [filterPage, setFilterPage] = useState(1);
 
-  // Pending
+  // Pending with pagination
   const [pending, setPending] = useState([]);
+  const [pendingPage, setPendingPage] = useState(1);
+  const pendingRecordsPerPage = 20;
 
   // Add Sale state
   const [warehouses, setWarehouses] = useState([]);
@@ -1545,13 +1547,53 @@ const Sales = () => {
   const interpretTimeseriesChart = () => {
     const ts = reportData?.timeseries || [];
     if (!ts.length) return 'No daily sales in this period.';
+    
+    // Handle single data point
+    if (ts.length === 1) {
+      return `Only one day of sales data available (₦${Number(ts[0].total_sales || 0).toLocaleString()}). Need more data for trend analysis.`;
+    }
+    
     const xs = ts.map((_, i) => i);
     const ys = ts.map(t => Number(t.total_sales) || 0);
+    
+    // Calculate polyfit
     const { a0, a1, a2 } = polyfit2(xs, ys);
+    
+    // Calculate slope at the last point (derivative of polynomial)
     const lastX = xs[xs.length - 1] || 0;
-    const slopeLast = a1 + 2*a2*lastX;
-    const trend = slopeLast > 0 ? 'increased' : (slopeLast < 0 ? 'decreased' : 'remained stable');
-    return `Sales have ${trend} during this period.`;
+    const slopeLast = a1 + 2 * a2 * lastX;
+    
+    // Determine trend based on slope
+    let trend = '';
+    let trendIcon = '';
+    if (slopeLast > 100) {
+      trend = 'significantly increased';
+      trendIcon = '📈';
+    } else if (slopeLast > 10) {
+      trend = 'increased';
+      trendIcon = '📈';
+    } else if (slopeLast > -10) {
+      trend = 'remained relatively stable';
+      trendIcon = '➡️';
+    } else if (slopeLast > -100) {
+      trend = 'decreased';
+      trendIcon = '📉';
+    } else {
+      trend = 'significantly decreased';
+      trendIcon = '📉';
+    }
+    
+    // Calculate total and average
+    const totalSales = ys.reduce((sum, val) => sum + val, 0);
+    const avgSales = totalSales / ys.length;
+    
+    // Find peak and lowest days
+    const maxSales = Math.max(...ys);
+    const minSales = Math.min(...ys);
+    const maxIdx = ys.indexOf(maxSales);
+    const minIdx = ys.indexOf(minSales);
+    
+    return `${trendIcon} Sales have ${trend} over this ${ts.length}-day period. Average daily sales: ₦${avgSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}. Peak: ₦${maxSales.toLocaleString()} on ${ts[maxIdx]?.sale_date || 'N/A'}. Lowest: ₦${minSales.toLocaleString()} on ${ts[minIdx]?.sale_date || 'N/A'}.`;
   };
 
   const Table = ({ data, page, setPage }) => {
@@ -2099,7 +2141,7 @@ const Sales = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ✅ FIXED: VAT Toggle - Now properly toggleable */}
+            {/* ✅ FIXED: VAT Toggle - Now properly toggleable and sets VAT to 0 when off */}
             <div className="flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -2109,6 +2151,13 @@ const Sales = () => {
                     const newValue = e.target.checked;
                     console.log('VAT toggle changed:', newValue);
                     setApplyVAT(newValue);
+                    // Set VAT rate to 0 when VAT is turned off
+                    if (!newValue) {
+                      setVatRate(0);
+                    } else {
+                      // Reset to default 7.5% when turned back on
+                      setVatRate(7.5);
+                    }
                   }}
                   className="sr-only peer"
                 />
@@ -2882,9 +2931,361 @@ const Sales = () => {
       )}
 
       {tab === 'Pending' && (
-        <div className="space-y-3">
-          <button onClick={loadPending} className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Refresh</button>
-          <Table data={pending} page={1} setPage={() => {}} />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-green-700">💰 Pending Payments</h2>
+            <button
+              onClick={() => {
+                setPendingPage(1);
+                loadPending();
+              }}
+              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-gray-700">
+              📋 <strong>Review and Update Customers with Outstanding Balances</strong>
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              This section shows all sales, purchases, and expenses with partial or credit payment status.
+            </p>
+          </div>
+
+          {pending.length === 0 ? (
+            <div className="bg-white rounded shadow p-6 text-center text-gray-500">
+              ℹ️ No pending transactions found.
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded shadow p-4">
+                <div className="text-sm text-gray-600 mb-3">
+                  Showing {((pendingPage - 1) * pendingRecordsPerPage) + 1} to {Math.min(pendingPage * pendingRecordsPerPage, pending.length)} of {pending.length} pending transactions
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {pending.slice((pendingPage - 1) * pendingRecordsPerPage, pendingPage * pendingRecordsPerPage).map((tx, idx) => {
+                // Identify transaction type
+                const saleId = tx.sale_id;
+                const purchaseId = tx.purchase_id;
+                const expenseId = tx.expense_id;
+                
+                // Get transaction date
+                const transactionDate = tx.sale_date || tx.purchase_date || tx.expense_date || 'unknown';
+                
+                // Get names
+                const customerName = tx.customer_name || 'Unknown Customer';
+                const supplierName = tx.supplier_name || 'Unknown Supplier';
+                const expenseName = tx.vendor_name || 'Unknown Expense';
+                
+                // Get amounts
+                const totalAmount = parseFloat(
+                  tx.total_cost || tx.total_amount || 0
+                );
+                const amountPaid = parseFloat(
+                  tx.total_price_paid || tx.amount_paid || 0
+                );
+                const outstandingAmount = totalAmount - amountPaid;
+                
+                // Get status and payment info
+                const paymentStatus = tx.payment_status || 'unknown';
+                const paymentMethod = tx.payment_method || 'unknown';
+                const dueDate = tx.due_date || 'unknown';
+                
+                return (
+                  <div key={idx} className="bg-white rounded shadow p-4 border-l-4 border-orange-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Transaction Details */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-700">Type:</span>
+                          <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm">
+                            {saleId ? '🛒 Sale' : purchaseId ? '📦 Purchase' : '💸 Expense'}
+                          </span>
+                        </div>
+                        
+                        {saleId && (
+                          <div>
+                            <span className="font-semibold text-gray-700">Customer:</span> {customerName}
+                          </div>
+                        )}
+                        {purchaseId && (
+                          <div>
+                            <span className="font-semibold text-gray-700">Supplier:</span> {supplierName}
+                          </div>
+                        )}
+                        {expenseId && (
+                          <div>
+                            <span className="font-semibold text-gray-700">Expense Item:</span> {expenseName}
+                          </div>
+                        )}
+                        
+                        <div>
+                          <span className="font-semibold text-gray-700">Transaction Date:</span> {transactionDate}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-700">Due Date:</span> {dueDate}
+                        </div>
+                      </div>
+                      
+                      {/* Payment Details */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Total Amount:</span>
+                          <span className="font-bold">₦{totalAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Amount Paid:</span>
+                          <span className="text-green-600 font-bold">₦{amountPaid.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Outstanding:</span>
+                          <span className="text-red-600 font-bold">₦{outstandingAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Status:</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                            paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {paymentStatus.toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-700">Payment Method:</span> {paymentMethod}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Payment Update Section */}
+                    {paymentStatus === 'partial' || paymentStatus === 'credit' ? (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-3">💰 Update Payment</h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Payment Type Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Update Type</label>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`update-type-${idx}`}
+                                  value="partial"
+                                  defaultChecked
+                                  className="w-4 h-4"
+                                />
+                                <span className="text-sm">Partial Payment</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`update-type-${idx}`}
+                                  value="full"
+                                  className="w-4 h-4"
+                                />
+                                <span className="text-sm">Fully Paid</span>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {/* Payment Amount Input */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Amount Paying Now (₦)
+                            </label>
+                            <input
+                              type="number"
+                              id={`payment-amount-${idx}`}
+                              min="0"
+                              max={outstandingAmount}
+                              step="0.01"
+                              defaultValue={0}
+                              className="border rounded px-3 py-2 w-full"
+                              placeholder="Enter amount"
+                              onChange={(e) => {
+                                const updateType = document.querySelector(`input[name="update-type-${idx}"]:checked`)?.value;
+                                if (updateType === 'full') {
+                                  e.target.value = outstandingAmount;
+                                }
+                              }}
+                            />
+                            <div className="text-xs text-gray-500 mt-1">
+                              Maximum: ₦{outstandingAmount.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Payment Evidence Upload */}
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Upload Payment Evidence *
+                          </label>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {/* Upload Method Selection */}
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-2">Select Method</label>
+                              <div className="space-y-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`evidence-method-${idx}`}
+                                    value="upload"
+                                    defaultChecked
+                                    className="w-4 h-4"
+                                  />
+                                  <span className="text-sm">Upload File</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`evidence-method-${idx}`}
+                                    value="camera"
+                                    className="w-4 h-4"
+                                  />
+                                  <span className="text-sm">Use Camera</span>
+                                </label>
+                              </div>
+                            </div>
+                            
+                            {/* File Upload Input */}
+                            <div>
+                              <input
+                                type="file"
+                                id={`evidence-file-${idx}`}
+                                accept=".jpg,.jpeg,.png,.pdf"
+                                className="border rounded px-3 py-2 w-full text-sm"
+                              />
+                              <div className="text-xs text-gray-500 mt-1">
+                                Supported: JPG, PNG, PDF
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Update Payment Button */}
+                        <div className="mt-4">
+                          <button
+                            onClick={async () => {
+                              const updateType = document.querySelector(`input[name="update-type-${idx}"]:checked`)?.value;
+                              const amountInput = document.getElementById(`payment-amount-${idx}`);
+                              const paymentAmount = updateType === 'full'
+                                ? outstandingAmount
+                                : parseFloat(amountInput?.value || 0);
+                              
+                              if (!paymentAmount || paymentAmount <= 0) {
+                                setError('Please enter a valid payment amount.');
+                                return;
+                              }
+                              
+                              // Get evidence file
+                              const evidenceFile = document.getElementById(`evidence-file-${idx}`)?.files[0];
+                              if (!evidenceFile) {
+                                setError('❌ You must upload or capture payment evidence before updating payment.');
+                                return;
+                              }
+                              
+                              setLoading(true);
+                              setError('');
+                              setSuccess('');
+                              
+                              try {
+                                // Determine transaction type and record ID
+                                let transactionType = '';
+                                let recordId = 0;
+                                
+                                if (saleId) {
+                                  transactionType = 'sale';
+                                  recordId = saleId;
+                                } else if (purchaseId) {
+                                  transactionType = 'purchase';
+                                  recordId = purchaseId;
+                                } else if (expenseId) {
+                                  transactionType = 'expense';
+                                  recordId = expenseId;
+                                } else {
+                                  setError('❌ No valid transaction ID found.');
+                                  setLoading(false);
+                                  return;
+                                }
+                                
+                                // Call the payment API
+                                const paymentPayload = {
+                                  transaction_type: transactionType,
+                                  record_id: recordId,
+                                  amount: paymentAmount,
+                                  payment_method: paymentMethod || 'cash',
+                                  notes: `${updateType === 'full' ? 'Full' : 'Partial'} payment via dashboard`,
+                                  transaction_date: transactionDate
+                                };
+                                
+                                console.log('Submitting payment:', paymentPayload);
+                                const response = await api.post('/sales/payments', paymentPayload);
+                                
+                                const newStatus = response.data?.new_status || 'unknown';
+                                setSuccess(`✅ Payment updated! New status: ${newStatus.toUpperCase()}`);
+                                
+                                // Refresh pending list
+                                await loadPending();
+                              } catch (e) {
+                                console.error('Payment update failed:', e);
+                                setError('Failed to update payment: ' + (e.response?.data?.detail || e.message));
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                            disabled={loading}
+                            className="w-full px-6 py-3 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 font-medium"
+                          >
+                            {loading ? 'Processing...' : '💰 Update Payment'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="bg-green-50 border border-green-200 rounded p-3 text-center">
+                          <span className="text-green-700 font-medium">✅ This transaction is fully paid</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Pagination Controls */}
+            {pending.length > pendingRecordsPerPage && (
+              <div className="bg-white rounded shadow p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Page {pendingPage} of {Math.ceil(pending.length / pendingRecordsPerPage)}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPendingPage(Math.max(1, pendingPage - 1))}
+                      disabled={pendingPage === 1}
+                      className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPendingPage(Math.min(Math.ceil(pending.length / pendingRecordsPerPage), pendingPage + 1))}
+                      disabled={pendingPage === Math.ceil(pending.length / pendingRecordsPerPage)}
+                      className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+          )}
         </div>
       )}
 

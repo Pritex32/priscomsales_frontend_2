@@ -25,6 +25,7 @@ import B2BStockMovement from './B2BStockMovement';
 import CustomersPage from './CustomersPage';
 import VendorListing from './VendorListing';
 import VendorAdminDashboard from './VendorAdminDashboard';
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -1149,7 +1150,7 @@ const Dashboard = () => {
                   // Get user_id from Redux state or localStorage
                   const userId = user?.user_id || user?.id || localStorage.getItem('user_id');
                   
-                  const response = await fetch('http://localhost:8000/feedback', {
+                  const response = await fetch(`${REACT_APP_API_URL}/feedback`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

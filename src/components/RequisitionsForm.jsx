@@ -142,28 +142,77 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     setShowItemDropdowns(newDropdowns);
   };
 
-  // Select item from dropdown
+  // Select item from dropdown - auto-add to top if selecting from search, increment if exists
   const selectItem = (index, itemName) => {
-    handleItemChange(index, 'item', itemName);
+    // Check if this item already exists in the list
+    const existingIndex = formData.items.findIndex((it, idx) =>
+      idx !== index && it.item.trim().toLowerCase() === itemName.trim().toLowerCase()
+    );
     
-    // Clear search and hide dropdown
-    const newSearches = [...itemSearches];
-    newSearches[index] = itemName;
-    setItemSearches(newSearches);
-    
-    const newDropdowns = [...showItemDropdowns];
-    newDropdowns[index] = false;
-    setShowItemDropdowns(newDropdowns);
+    if (existingIndex !== -1) {
+      // Item exists elsewhere - increment its quantity and move to top
+      const updatedItems = [...formData.items];
+      const existingItem = { ...updatedItems[existingIndex] };
+      existingItem.quantity = (parseInt(existingItem.quantity) || 0) + 1;
+      
+      // Remove from current position
+      updatedItems.splice(existingIndex, 1);
+      // Remove the empty row we were typing in
+      updatedItems.splice(index, 1);
+      // Add updated item to top
+      updatedItems.unshift(existingItem);
+      
+      setFormData(prev => ({ ...prev, items: updatedItems }));
+      
+      // Update search states
+      const newSearches = itemSearches.filter((_, i) => i !== index);
+      newSearches.unshift(itemName);
+      setItemSearches(newSearches);
+      
+      const newDropdowns = showItemDropdowns.filter((_, i) => i !== index);
+      newDropdowns.unshift(false);
+      setShowItemDropdowns(newDropdowns);
+    } else {
+      // New item - update current row and move to top if not already at top
+      const updatedItems = [...formData.items];
+      updatedItems[index] = { ...updatedItems[index], item: itemName };
+      
+      if (index !== 0) {
+        // Move to top
+        const itemToMove = updatedItems.splice(index, 1)[0];
+        updatedItems.unshift(itemToMove);
+        
+        // Update search states accordingly
+        const searchToMove = itemSearches.splice(index, 1)[0];
+        const newSearches = [itemName, ...itemSearches];
+        setItemSearches(newSearches);
+        
+        const dropdownToMove = showItemDropdowns.splice(index, 1)[0];
+        const newDropdowns = [false, ...showItemDropdowns];
+        setShowItemDropdowns(newDropdowns);
+      } else {
+        // Already at top, just update search
+        const newSearches = [...itemSearches];
+        newSearches[index] = itemName;
+        setItemSearches(newSearches);
+        
+        const newDropdowns = [...showItemDropdowns];
+        newDropdowns[index] = false;
+        setShowItemDropdowns(newDropdowns);
+      }
+      
+      setFormData(prev => ({ ...prev, items: updatedItems }));
+    }
   };
 
-  // Add new item row
+  // Add new item row at the top
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
       items: [{ item: '', quantity: 1 }, ...prev.items]
     }));
-    setItemSearches([...itemSearches, '']);
-    setShowItemDropdowns([...showItemDropdowns, false]);
+    setItemSearches(['', ...itemSearches]);
+    setShowItemDropdowns([false, ...showItemDropdowns]);
   };
 
   // Remove item row
@@ -178,14 +227,33 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     setShowItemDropdowns(showItemDropdowns.filter((_, i) => i !== index));
   };
 
-  // Signature canvas functions
-  const startDrawing = (e) => {
+  // Enhanced signature canvas functions with touch support
+  const getCoordinates = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
     
+    // Support both mouse and touch events
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+    
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    const { x, y } = getCoordinates(e);
+    
+    // Configure drawing style
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
@@ -193,20 +261,20 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
 
   const draw = (e) => {
     if (!isDrawing) return;
+    e.preventDefault();
     
     const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
     const ctx = canvas.getContext('2d');
+    const { x, y } = getCoordinates(e);
+    
     ctx.lineTo(x, y);
     ctx.stroke();
     setHasSignature(true);
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e) => {
     if (!isDrawing) return;
+    e.preventDefault();
     setIsDrawing(false);
     
     // Convert canvas to base64
@@ -222,6 +290,16 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     setHasSignature(false);
     setFormData(prev => ({ ...prev, signature_base64: null }));
   };
+  
+  // Initialize canvas with white background
+  useEffect(() => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }, []);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -518,14 +596,17 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
               <div className="border border-gray-300 rounded-lg p-4">
                 <canvas
                   ref={canvasRef}
-                  width={400}
-                  height={150}
-                  className="border border-gray-200 rounded cursor-crosshair w-full"
+                  width={600}
+                  height={200}
+                  className="border-2 border-gray-300 rounded-lg cursor-crosshair w-full bg-white shadow-inner"
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
                   onMouseLeave={stopDrawing}
-                  style={{ touchAction: 'none' }}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                  style={{ touchAction: 'none', maxWidth: '100%', height: 'auto' }}
                 />
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-sm text-gray-500">
@@ -534,9 +615,9 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
                   <button
                     type="button"
                     onClick={clearSignature}
-                    className="text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                    className="px-3 py-1 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors font-medium"
                   >
-                    Clear
+                    Clear Signature
                   </button>
                 </div>
               </div>

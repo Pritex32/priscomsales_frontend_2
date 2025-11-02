@@ -2141,31 +2141,33 @@ const Sales = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ✅ FIXED: VAT Toggle - Now properly toggleable and sets VAT to 0 when off */}
+            {/* VAT Toggle - Simple button-based toggle */}
             <div className="flex items-center gap-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={applyVAT}
-                  onChange={e => {
-                    const newValue = e.target.checked;
-                    console.log('VAT toggle changed:', newValue);
-                    setApplyVAT(newValue);
-                    // Set VAT rate to 0 when VAT is turned off
-                    if (!newValue) {
-                      setVatRate(0);
-                    } else {
-                      // Reset to default 7.5% when turned back on
-                      setVatRate(7.5);
-                    }
-                  }}
-                  className="sr-only peer"
+              <button
+                type="button"
+                onClick={() => {
+                  const newValue = !applyVAT;
+                  console.log('VAT toggle clicked:', newValue);
+                  setApplyVAT(newValue);
+                  if (!newValue) {
+                    setVatRate(0);
+                  } else {
+                    setVatRate(7.5);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  applyVAT ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    applyVAT ? 'translate-x-6' : 'translate-x-1'
+                  }`}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                <span className="ml-3 text-sm font-medium text-gray-700">
-                  {applyVAT ? 'VAT Applied' : 'VAT Not Applied'}
-                </span>
-              </label>
+              </button>
+              <span className="text-sm font-medium text-gray-700">
+                {applyVAT ? 'VAT Applied' : 'VAT Not Applied'}
+              </span>
             </div>
             {applyVAT && (
               <div>
@@ -2967,45 +2969,95 @@ const Sales = () => {
               </div>
               
               <div className="space-y-4">
-                {pending.slice((pendingPage - 1) * pendingRecordsPerPage, pendingPage * pendingRecordsPerPage).map((tx, idx) => {
-                // Identify transaction type
-                const saleId = tx.sale_id;
-                const purchaseId = tx.purchase_id;
-                const expenseId = tx.expense_id;
+                {(() => {
+                  // Group pending transactions by sale_id, purchase_id, or expense_id
+                  const groupedTransactions = new Map();
+                  
+                  pending.forEach(tx => {
+                    const saleId = tx.sale_id;
+                    const purchaseId = tx.purchase_id;
+                    const expenseId = tx.expense_id;
+                    
+                    // Create unique key for grouping
+                    const key = saleId ? `sale_${saleId}` :
+                               purchaseId ? `purchase_${purchaseId}` :
+                               expenseId ? `expense_${expenseId}` :
+                               `unknown_${Math.random()}`;
+                    
+                    if (!groupedTransactions.has(key)) {
+                      groupedTransactions.set(key, {
+                        ...tx,
+                        items: [tx],
+                        itemCount: 1
+                      });
+                    } else {
+                      const existing = groupedTransactions.get(key);
+                      existing.items.push(tx);
+                      existing.itemCount++;
+                      // Update totals to reflect all items
+                      const currentTotal = parseFloat(existing.total_cost || existing.total_amount || 0);
+                      const itemTotal = parseFloat(tx.total_cost || tx.total_amount || 0);
+                      if (existing.total_cost !== undefined) {
+                        existing.total_cost = currentTotal + itemTotal;
+                      } else {
+                        existing.total_amount = currentTotal + itemTotal;
+                      }
+                    }
+                  });
+                  
+                  // Convert to array and paginate
+                  const groupedArray = Array.from(groupedTransactions.values());
+                  const paginatedGroups = groupedArray.slice(
+                    (pendingPage - 1) * pendingRecordsPerPage,
+                    pendingPage * pendingRecordsPerPage
+                  );
+                  
+                  return paginatedGroups.map((group, idx) => {
+                    const tx = group;
+                    
+                    // Identify transaction type
+                    const saleId = tx.sale_id;
+                    const purchaseId = tx.purchase_id;
+                    const expenseId = tx.expense_id;
+                    
+                    // Get transaction date
+                    const transactionDate = tx.sale_date || tx.purchase_date || tx.expense_date || 'unknown';
+                    
+                    // Get names
+                    const customerName = tx.customer_name || 'Unknown Customer';
+                    const supplierName = tx.supplier_name || 'Unknown Supplier';
+                    const expenseName = tx.vendor_name || 'Unknown Expense';
+                    
+                    // Get amounts (now reflecting grouped totals)
+                    const totalAmount = parseFloat(
+                      tx.total_cost || tx.total_amount || 0
+                    );
+                    const amountPaid = parseFloat(
+                      tx.total_price_paid || tx.amount_paid || 0
+                    );
+                    const outstandingAmount = totalAmount - amountPaid;
+                    
+                    // Get status and payment info
+                    const paymentStatus = tx.payment_status || 'unknown';
+                    const paymentMethod = tx.payment_method || 'unknown';
+                    const dueDate = tx.due_date || 'unknown';
                 
-                // Get transaction date
-                const transactionDate = tx.sale_date || tx.purchase_date || tx.expense_date || 'unknown';
-                
-                // Get names
-                const customerName = tx.customer_name || 'Unknown Customer';
-                const supplierName = tx.supplier_name || 'Unknown Supplier';
-                const expenseName = tx.vendor_name || 'Unknown Expense';
-                
-                // Get amounts
-                const totalAmount = parseFloat(
-                  tx.total_cost || tx.total_amount || 0
-                );
-                const amountPaid = parseFloat(
-                  tx.total_price_paid || tx.amount_paid || 0
-                );
-                const outstandingAmount = totalAmount - amountPaid;
-                
-                // Get status and payment info
-                const paymentStatus = tx.payment_status || 'unknown';
-                const paymentMethod = tx.payment_method || 'unknown';
-                const dueDate = tx.due_date || 'unknown';
-                
-                return (
-                  <div key={idx} className="bg-white rounded shadow p-4 border-l-4 border-orange-500">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Transaction Details */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-700">Type:</span>
-                          <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm">
-                            {saleId ? '🛒 Sale' : purchaseId ? '📦 Purchase' : '💸 Expense'}
-                          </span>
-                        </div>
+                    return (
+                      <div key={idx} className="bg-white rounded shadow p-4 border-l-4 border-orange-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Transaction Details */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Type:</span>
+                              <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm">
+                                {saleId ? '🛒 Sale' : purchaseId ? '📦 Purchase' : '💸 Expense'}
+                              </span>
+                              {tx.itemCount > 1 && (
+                                <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
+                                  {tx.itemCount} items
+                                </span>
+                              )}
+                            </div>
                         
                         {saleId && (
                           <div>
@@ -3126,33 +3178,7 @@ const Sales = () => {
                             Upload Payment Evidence *
                           </label>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {/* Upload Method Selection */}
-                            <div>
-                              <label className="block text-xs text-gray-600 mb-2">Select Method</label>
-                              <div className="space-y-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name={`evidence-method-${idx}`}
-                                    value="upload"
-                                    defaultChecked
-                                    className="w-4 h-4"
-                                  />
-                                  <span className="text-sm">Upload File</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name={`evidence-method-${idx}`}
-                                    value="camera"
-                                    className="w-4 h-4"
-                                  />
-                                  <span className="text-sm">Use Camera</span>
-                                </label>
-                              </div>
-                            </div>
-                            
+                          <div className="space-y-3">
                             {/* File Upload Input */}
                             <div>
                               <input
@@ -3160,11 +3186,87 @@ const Sales = () => {
                                 id={`evidence-file-${idx}`}
                                 accept=".jpg,.jpeg,.png,.pdf"
                                 className="border rounded px-3 py-2 w-full text-sm"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    e.target.dataset.hasFile = 'true';
+                                  }
+                                }}
                               />
                               <div className="text-xs text-gray-500 mt-1">
-                                Supported: JPG, PNG, PDF
+                                Supported: JPG, PNG, PDF (Max 10MB)
                               </div>
                             </div>
+                            
+                            {/* Camera Button */}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const stream = await navigator.mediaDevices.getUserMedia({
+                                    video: {
+                                      facingMode: 'environment',
+                                      width: { ideal: 1920 },
+                                      height: { ideal: 1080 }
+                                    }
+                                  });
+                                  
+                                  const modal = document.createElement('div');
+                                  modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+                                  modal.innerHTML = `
+                                    <div class="bg-white rounded-lg p-4 max-w-2xl w-full mx-4">
+                                      <h3 class="text-lg font-semibold mb-3">Capture Payment Evidence</h3>
+                                      <video id="camera-preview-${idx}" autoplay playsinline class="w-full rounded border mb-3" style="max-height: 400px;"></video>
+                                      <div class="flex gap-2 justify-end">
+                                        <button id="capture-btn-${idx}" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                                          📸 Capture
+                                        </button>
+                                        <button id="cancel-btn-${idx}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  `;
+                                  document.body.appendChild(modal);
+                                  
+                                  const video = document.getElementById(`camera-preview-${idx}`);
+                                  video.srcObject = stream;
+                                  
+                                  document.getElementById(`capture-btn-${idx}`).onclick = () => {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = video.videoWidth;
+                                    canvas.height = video.videoHeight;
+                                    canvas.getContext('2d').drawImage(video, 0, 0);
+                                    
+                                    canvas.toBlob((blob) => {
+                                      const file = new File([blob], `payment_evidence_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                                      const dataTransfer = new DataTransfer();
+                                      dataTransfer.items.add(file);
+                                      const fileInput = document.getElementById(`evidence-file-${idx}`);
+                                      fileInput.files = dataTransfer.files;
+                                      fileInput.dataset.hasFile = 'true';
+                                      
+                                      stream.getTracks().forEach(track => track.stop());
+                                      document.body.removeChild(modal);
+                                      
+                                      setSuccess('Payment evidence captured successfully!');
+                                    }, 'image/jpeg', 0.9);
+                                  };
+                                  
+                                  document.getElementById(`cancel-btn-${idx}`).onclick = () => {
+                                    stream.getTracks().forEach(track => track.stop());
+                                    document.body.removeChild(modal);
+                                  };
+                                  
+                                } catch (err) {
+                                  setError('Failed to access camera: ' + err.message);
+                                }
+                              }}
+                              className="w-full px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                            >
+                              <span>📷</span>
+                              <span>Use Camera to Capture Evidence</span>
+                            </button>
                           </div>
                         </div>
                         
@@ -3253,10 +3355,11 @@ const Sales = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             
             {/* Pagination Controls */}
             {pending.length > pendingRecordsPerPage && (

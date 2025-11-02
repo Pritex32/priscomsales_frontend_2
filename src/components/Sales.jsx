@@ -2970,50 +2970,13 @@ const Sales = () => {
               
               <div className="space-y-4">
                 {(() => {
-                  // Group pending transactions by sale_id, purchase_id, or expense_id
-                  const groupedTransactions = new Map();
-                  
-                  pending.forEach(tx => {
-                    const saleId = tx.sale_id;
-                    const purchaseId = tx.purchase_id;
-                    const expenseId = tx.expense_id;
-                    
-                    // Create unique key for grouping
-                    const key = saleId ? `sale_${saleId}` :
-                               purchaseId ? `purchase_${purchaseId}` :
-                               expenseId ? `expense_${expenseId}` :
-                               `unknown_${Math.random()}`;
-                    
-                    if (!groupedTransactions.has(key)) {
-                      groupedTransactions.set(key, {
-                        ...tx,
-                        items: [tx],
-                        itemCount: 1
-                      });
-                    } else {
-                      const existing = groupedTransactions.get(key);
-                      existing.items.push(tx);
-                      existing.itemCount++;
-                      // Update totals to reflect all items
-                      const currentTotal = parseFloat(existing.total_cost || existing.total_amount || 0);
-                      const itemTotal = parseFloat(tx.total_cost || tx.total_amount || 0);
-                      if (existing.total_cost !== undefined) {
-                        existing.total_cost = currentTotal + itemTotal;
-                      } else {
-                        existing.total_amount = currentTotal + itemTotal;
-                      }
-                    }
-                  });
-                  
-                  // Convert to array and paginate
-                  const groupedArray = Array.from(groupedTransactions.values());
-                  const paginatedGroups = groupedArray.slice(
+                  // Backend now returns pre-grouped sales, so we just need to paginate
+                  const paginatedTransactions = pending.slice(
                     (pendingPage - 1) * pendingRecordsPerPage,
                     pendingPage * pendingRecordsPerPage
                   );
                   
-                  return paginatedGroups.map((group, idx) => {
-                    const tx = group;
+                  return paginatedTransactions.map((tx, idx) => {
                     
                     // Identify transaction type
                     const saleId = tx.sale_id;

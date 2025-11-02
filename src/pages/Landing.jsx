@@ -22,7 +22,7 @@ export default function Landing() {
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-4">
-              <img src="PriscomSales_logo_withtext_rockyart.png" alt="PriscomSales" className="w-50 h-50" />
+              <img src="PriscomSales_logo_withtext_rockyart.png" alt="PriscomSales" className="w-30 h-30" />
               
             </div>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">

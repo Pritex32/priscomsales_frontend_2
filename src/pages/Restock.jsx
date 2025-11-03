@@ -376,6 +376,18 @@ const Restock = () => {
       // Map payment method to backend expected values
       const paymentMethodMap = { check: 'cheque', cheque: 'cheque', cash: 'cash', transfer: 'transfer', card: 'card' };
       const payment_method = paymentMethodMap[(restockForm.payment_method || '').toLowerCase()] || 'cash';
+      // Calculate grand total
+      const calculatedGrandTotal = calculateTotal(restockForm.selected_items);
+      
+      // Determine total_price_paid based on payment_status
+      let total_price_paid = 0;
+      if (restockForm.payment_status === 'paid') {
+        total_price_paid = calculatedGrandTotal;
+      } else if (restockForm.payment_status === 'partial') {
+        total_price_paid = Number(restockForm.total_price_paid || 0);
+      } else {
+        total_price_paid = 0;
+      }
       
       // Upload invoice file if present
       let invoice_file_url = null;

@@ -18,7 +18,6 @@ import {
 import apiService from '../services/api';
 import { toast } from 'react-toastify';
 import Tooltip from '../components/Tooltip';
-const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const Restock = () => {
   // State management
@@ -139,7 +138,7 @@ const Restock = () => {
       setApiStatus('failed');
       
       if (error.code === 'ERR_NETWORK') {
-        toast.error(`Cannot connect to backend server. Make sure it\'s running on ${REACT_APP_API_URL}`);
+        toast.error('Cannot connect to backend server. Make sure it\'s running on localhost:8000');
       } else {
         toast.error('API connection failed. Check console for details.');
       }
@@ -397,16 +396,39 @@ const Restock = () => {
         payment_method,
         due_date: restockForm.due_date || null,
         notes: restockForm.notes || null,
-        items: restockForm.selected_items.map(it => ({
-          item_name: it.item_name,
-          quantity: Number(it.quantity || 0),
-          unit_price: Number(it.unit_price || 0)
-        })),
+        items: restockForm.selected_items.map(it => {
+          const inv = inventoryItems[it.item_name] || {};
+          return {
+            item_id: inv.item_id || null,
+            item_name: it.item_name,
+            quantity: Number(it.quantity || 0),
+            unit_price: Number(it.unit_price || 0),
+            warehouse_name: restockForm.warehouse_name
+          };
+        }),
         total_price_paid: Number(restockForm.total_price_paid || 0),
         invoice_file_url,
         employee_id: currentUser?.user_id || currentUser?.id || null,
         employee_name: currentUser?.username || null
       };
+      
+      console.log('=== RESTOCK BATCH SUBMISSION DEBUG ===');
+      console.log('Warehouse:', restockForm.warehouse_name);
+      console.log('Inventory Items Available:', Object.keys(inventoryItems).length);
+      console.log('Selected Items Count:', restockForm.selected_items.length);
+      console.log('Full Payload:', JSON.stringify(payload, null, 2));
+      console.log('Items Detail:');
+      payload.items.forEach((item, idx) => {
+        console.log(`  Item ${idx + 1}:`, {
+          item_id: item.item_id,
+          item_name: item.item_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          warehouse_name: item.warehouse_name,
+          inventory_lookup: inventoryItems[item.item_name]
+        });
+      });
+      console.log('=====================================');
       
       await apiService.post('/restock/batch', payload);
       
@@ -856,7 +878,7 @@ const Restock = () => {
                 apiStatus === 'auth_failed' ? 'text-orange-600' :
                 apiStatus === 'failed' ? 'text-red-600' : 'text-gray-600'
               }`}>{apiStatus.toUpperCase().replace('_', ' ')}</span></p>
-              <p>Base URL: <span className="font-mono text-xs">{REACT_APP_API_URL}</span></p>
+              <p>Base URL: <span className="font-mono text-xs">localhost:8000</span></p>
               <p>Token: <span className="font-mono">{localStorage.getItem('login_token') ? '✅' : '❌'}</span></p>
             </div>
             

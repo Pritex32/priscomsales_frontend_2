@@ -96,10 +96,16 @@ const RegisterForm = () => {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6">
-            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
+            <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center mx-auto mb-4">
+              <img
+                src="/PriscomSales_logo__rockyart.png"
+                alt="PriscomSales Logo"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  console.error('Image failed to load:', e.target.src);
+                  e.target.style.display = 'none';
+                }}
+              />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">PriscomSales</h1>
             <p className="text-emerald-100">Create your account</p>

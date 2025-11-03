@@ -115,9 +115,12 @@ const LoginForm = () => {
         <div className="text-center mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6">
             <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              
+              <img
+                src="/PriscomSales_logo_rockyart.png"
+                alt="PriscomSales Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">PriscomSales</h1>
             <p className="text-blue-100">Smart Sales, Smarter Decisions</p>

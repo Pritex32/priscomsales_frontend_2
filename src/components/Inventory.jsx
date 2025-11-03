@@ -567,13 +567,20 @@ const Inventory = () => {
               <input type="date" value={filterEnd} onChange={e=>setFilterEnd(e.target.value)} className="border rounded px-3 py-2" />
             </div>
             <div>
-              <label className="block text-sm text-gray-600">Item</label>
-              <select value={filterItem} onChange={e=>setFilterItem(e.target.value)} className="border rounded px-3 py-2 min-w-[200px]">
+              <label className="block text-sm text-gray-600">Item (type to search)</label>
+              <input
+                list="item-names-list"
+                value={filterItem}
+                onChange={e=>setFilterItem(e.target.value)}
+                className="border rounded px-3 py-2 min-w-[200px]"
+                placeholder="Type or select item..."
+              />
+              <datalist id="item-names-list">
                 <option value="">All</option>
-                {Object.entries(itemsMap).map(([name, obj]) => (
-                  <option key={obj.item_id} value={name}>{name}</option>
+                {[...new Set(Object.keys(itemsMap))].sort().map((name) => (
+                  <option key={name} value={name}>{name}</option>
                 ))}
-              </select>
+              </datalist>
             </div>
             <div>
               <label className="block text-sm text-gray-600">Keyword</label>

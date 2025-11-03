@@ -114,10 +114,9 @@ const LoginForm = () => {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6">
-            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4">
-              
+            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4">           
               <img
-                src="/PriscomSales_logo_rockyart.png"
+                src="/PriscomSales_logo__rockyart.png"
                 alt="PriscomSales Logo"
                 className="w-full h-full object-contain"
               />

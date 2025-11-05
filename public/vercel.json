@@ -10,6 +10,10 @@
       "source": "/(.*)",
       "headers": [
         {
+          "key": "x-prerender-token",
+          "value": "5zfnud3XN3HDdzNSzsqR"
+        },
+        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         },

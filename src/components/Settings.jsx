@@ -402,9 +402,6 @@ const Settings = () => {
           } finally {
             setMonoLoading(false);
           }
-        },
-        onEvent(eventName, data) {
-          console.log('DEBUG: Mono event:', eventName, data);
         }
       });
       

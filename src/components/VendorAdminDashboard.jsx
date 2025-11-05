@@ -680,6 +680,18 @@ const VendorAdminDashboard = () => {
         {activeTab === 'vendors' && renderPendingVendorsTab()}
         {activeTab === 'products' && renderPendingProductsTab()}
       </div>
+       {/* Resolve Disputes Button - Floating Action Button */}
+      <button
+        onClick={() => {
+          setShowDisputesModal(true);
+          fetchDisputes();
+        }}
+        className="fixed bottom-8 right-8 bg-orange-600 text-white px-6 py-4 rounded-full shadow-2xl hover:bg-orange-700 transition-all hover:scale-110 flex items-center gap-2 z-50"
+        style={{ zIndex: 9999 }}
+      >
+        <AlertTriangle className="w-6 h-6" />
+        <span className="font-medium">Resolve Disputes</span>
+      </button>
 
       {/* View Vendor Modal */}
       {isViewModalOpen && selectedVendor && (

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { 
-  Truck, Package, CheckCircle, XCircle, Clock, 
-  Eye, AlertCircle, Search
+import {
+  Truck, Package, CheckCircle, XCircle, Clock,
+  Eye, AlertCircle, Search, Lock
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -11,11 +11,46 @@ const VendorManagement = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Access Code Verification
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [vendorInfo, setVendorInfo] = useState(null);
+  
   // Mark Delivered Modal
   const [showDeliveredModal, setShowDeliveredModal] = useState(false);
   const [selectedOrderReference, setSelectedOrderReference] = useState('');
-  const [vendorAccessCode, setVendorAccessCode] = useState('');
+  const [deliveryAccessCode, setDeliveryAccessCode] = useState('');
   const [orderItems, setOrderItems] = useState([]);
+
+  // Verify vendor access code
+  const handleVerifyAccess = async () => {
+    if (!accessCode.trim()) {
+      toast.error('Please enter your vendor access code');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('access_code', accessCode);
+      
+      const response = await api.post('/shop/vendor/verify-access', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (response.data.success) {
+        setIsAuthenticated(true);
+        setVendorInfo(response.data);
+        toast.success(`Welcome, ${response.data.vendor_name}! ✅`);
+        // Fetch orders after successful authentication
+        fetchVendorOrders();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Invalid access code');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch vendor orders
   const fetchVendorOrders = async () => {
@@ -44,7 +79,7 @@ const VendorManagement = () => {
 
   // Mark order as delivered
   const handleMarkDelivered = async () => {
-    if (!vendorAccessCode.trim()) {
+    if (!deliveryAccessCode.trim()) {
       toast.error('Please enter vendor access code');
       return;
     }
@@ -52,7 +87,7 @@ const VendorManagement = () => {
     try {
       setLoading(true);
       const formData = new FormData();
-      formData.append('access_code', vendorAccessCode);
+      formData.append('access_code', deliveryAccessCode);
       
       await api.post(`/shop/vendor/orders/${selectedOrderReference}/mark-delivered`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -60,7 +95,7 @@ const VendorManagement = () => {
       
       toast.success('Order marked as delivered successfully ✅');
       setShowDeliveredModal(false);
-      setVendorAccessCode('');
+      setDeliveryAccessCode('');
       setSelectedOrderReference('');
       setOrderItems([]);
       fetchVendorOrders(); // Refresh orders
@@ -78,9 +113,7 @@ const VendorManagement = () => {
     setShowDeliveredModal(true);
   };
 
-  useEffect(() => {
-    fetchVendorOrders();
-  }, []);
+  // Don't fetch orders on mount - wait for authentication
 
   // Filter orders
   const filteredOrders = vendorOrders.filter(order =>
@@ -95,15 +128,67 @@ const VendorManagement = () => {
   const deliveredOrders = filteredOrders.filter(o => o.order_status === 'delivered');
   const rejectedOrders = filteredOrders.filter(o => o.order_status === 'rejected');
 
+  // Show access code form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md w-full">
+          <div className="flex items-center justify-center mb-6">
+            <div className="p-4 bg-green-100 rounded-full">
+              <Lock className="w-12 h-12 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">Vendor Access Required</h2>
+          <p className="text-center text-gray-600 mb-6">Enter your vendor access code to continue</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🔐 Vendor Access Code
+              </label>
+              <input
+                type="password"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleVerifyAccess()}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Enter your vendor access code"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                This is the access code you received when your vendor account was approved
+              </p>
+            </div>
+            <button
+              onClick={handleVerifyAccess}
+              disabled={loading}
+              className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50"
+            >
+              <Lock className="w-5 h-5 mr-2" />
+              {loading ? 'Verifying...' : 'Verify Access'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <Package className="w-8 h-8 text-green-600" />
-            Vendor Order Management
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+              <Package className="w-8 h-8 text-green-600" />
+              Vendor Order Management
+            </h1>
+            {vendorInfo && (
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Logged in as:</p>
+                <p className="font-bold text-gray-900">{vendorInfo.vendor_name}</p>
+              </div>
+            )}
+          </div>
           
           {/* Search */}
           <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">

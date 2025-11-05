@@ -405,7 +405,7 @@ const Settings = () => {
         },
         onEvent: (eventName, data) => {
           console.log('DEBUG: Mono event:', eventName, data);
-        }
+        },
       });
       
       connect.setup();

@@ -25,6 +25,9 @@ import B2BStockMovement from './B2BStockMovement';
 import CustomersPage from './CustomersPage';
 import VendorListing from './VendorListing';
 import VendorAdminDashboard from './VendorAdminDashboard';
+import ShopFromWholesalers from './ShopFromWholesalers';
+import VendorManagement from './VendorManagement';
+
 const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const Dashboard = () => {

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { 
-  Store, Package, CheckCircle, XCircle, Clock, Search, 
+import {
+  Store, Package, CheckCircle, XCircle, Clock, Search,
   Eye, Phone, MapPin, Calendar, AlertCircle, FileText,
-  Trash2, ChevronLeft, ChevronRight, Lock, Home
+  Trash2, ChevronLeft, ChevronRight, Lock, Home, Truck, AlertTriangle
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -13,6 +13,7 @@ const VendorAdminDashboard = () => {
   const navigate = useNavigate();
   const { user, role } = useSelector(state => state.auth);
   const [activeTab, setActiveTab] = useState('vendors');
+  
   // Disputes
   const [showDisputesModal, setShowDisputesModal] = useState(false);
   const [disputes, setDisputes] = useState([]);
@@ -188,6 +189,7 @@ const VendorAdminDashboard = () => {
       setLoading(false);
     }
   };
+
   // Fetch all disputes
   const fetchDisputes = async () => {
     try {
@@ -589,8 +591,7 @@ const VendorAdminDashboard = () => {
   }
 
   return (
-    <div>
-
+    <div className="p-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
@@ -680,7 +681,8 @@ const VendorAdminDashboard = () => {
         {activeTab === 'vendors' && renderPendingVendorsTab()}
         {activeTab === 'products' && renderPendingProductsTab()}
       </div>
-       {/* Resolve Disputes Button - Floating Action Button */}
+
+      {/* Resolve Disputes Button - Floating Action Button */}
       <button
         onClick={() => {
           setShowDisputesModal(true);
@@ -919,6 +921,7 @@ const VendorAdminDashboard = () => {
           </div>
         </div>
       )}
+
       {/* Disputes Resolution Modal */}
       {showDisputesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDisputesModal(false)}>

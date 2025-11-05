@@ -590,7 +590,7 @@ const Restock = () => {
     if (priceUpdateForm.selected_items.some(item => item.new_price < 0)) {
       errors.push('Prices cannot be negative');
       console.error('Validation Error: Negative prices detected');
-      console.error('Items with negative prices:', priceUpdateForm.selected_items.filte
+      console.error('Items with negative prices:', priceUpdateForm.selected_items.filter(item => item.new_price < 0));
     }
     
     if (errors.length > 0) {

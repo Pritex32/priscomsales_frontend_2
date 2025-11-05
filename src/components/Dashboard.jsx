@@ -75,10 +75,12 @@ const Dashboard = () => {
     { id: 'restock', name: 'Restock', icon: '📦', component: Restock, permission: 'restock.page.access', requirePermission: true },
     { id: 'expenses', name: 'Expenses', icon: '💰', component: Expenses, permission: 'expenses', requirePermission: false },
     { id: 'requisitions', name: 'Requisitions', icon: '📋', component: Requisitions, permission: 'requisitions', requirePermission: false },
+    { id: 'shop', name: 'Shop', icon: '🛒', component: ShopFromWholesalers, permission: null, requirePermission: false },
     { id: 'customers', name: 'Customers', icon: '👥', component: CustomersPage, permission: 'customers', requirePermission: false },
     { id: 'admin-review', name: 'Admin Review', icon: '👨‍💼', component: AdminReview, permission: 'admin_review.page.access', requirePermission: true },
     { id: 'b2b-movement', name: 'Stock Movement', icon: '📦', component: B2BStockMovement, permission: 'stock_movement.page.access', requirePermission: true },
     { id: 'vendors', name: 'Vendors', icon: '🏢', component: VendorListing, permission: 'vendors', requirePermission: false },
+    { id: 'vendor-orders', name: 'Vendor Orders', icon: '🚚', component: VendorManagement, permission: null, requirePermission: false },
     { id: 'settings', name: 'Settings', icon: '⚙️', component: Settings, permission: 'settings.page.access', requirePermission: true },
   ];
 

@@ -388,6 +388,14 @@ const Restock = () => {
       } else {
         total_price_paid = 0;
       }
+          // Validation: Ensure total_price_paid is correct
+      console.log('=== PAYMENT CALCULATION DEBUG ===');
+      console.log('Payment Status:', restockForm.payment_status);
+      console.log('Selected Items:', restockForm.selected_items);
+      console.log('Calculated Grand Total:', calculatedGrandTotal);
+      console.log('Total Price Paid (final):', total_price_paid);
+      console.log('Form total_price_paid field:', restockForm.total_price_paid);
+      console.log('================================');
       
       // Upload invoice file if present
       let invoice_file_url = null;
@@ -1266,6 +1274,20 @@ const Restock = () => {
                     toast.error('No data in selected date range');
                     return;
                   }
+                  const cleanCSVValue = (value) => {
+                      if (value === null || value === undefined) return '';
+                      const str = String(value);
+                      // Remove newlines, carriage returns, and extra whitespace
+                      const cleaned = str.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+                      // Escape quotes
+                      const escaped = cleaned.replace(/"/g, '""');
+                      // Wrap in quotes if contains comma, quote, or space
+                      if (escaped.includes(',') || escaped.includes('"') || escaped.includes(' ')) {
+                        return `"${escaped}"`;
+                      }
+                      return escaped;
+                    };
+                    
                   const csvContent = "data:text/csv;charset=utf-8," + 
                     ["Item,Supplier,Quantity,Unit Price,Total,Date,Status,Warehouse"].concat(
                       rows.map(row => 

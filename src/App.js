@@ -20,6 +20,7 @@ import B2BStockMovement from './components/B2BStockMovement';
 import VendorRegistration from './components/VendorRegistration';
 import VendorProductUpload from './components/VendorProductUpload';
 import ShopFromWholesalers from './components/ShopFromWholesalers';
+import VendorManagement from './components/VendorManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useEffect } from 'react';
 import api from './services/api';
@@ -81,6 +82,7 @@ function App() {
           <Route path="/vendor-registration" element={<VendorRegistration />} />
           <Route path="/vendor-product-upload" element={<VendorProductUpload />} />
           <Route path="/shop" element={<ShopFromWholesalers />} />
+          <Route path="/vendor-management" element={<VendorManagement />} />
         </Routes>
       </Router>
     </Provider>

@@ -382,16 +382,17 @@ const Settings = () => {
       console.log('DEBUG: MonoConnect available, initializing widget');
       
       // Initialize and open
-      const connect = new window.MonoConnect({
+      const monoConfig = {
         key: MONO_PUBLIC_KEY,
         onClose: () => {
           console.log('DEBUG: Mono widget closed');
           setMonoLoading(false);
         },
-        onSuccess: async ({ code }) => {
+        onSuccess: async (response) => {
           console.log('DEBUG: Mono onSuccess callback triggered with code');
+          const code = response.code;
           try {
-            const resp = await api.post('/settings/mono/link', { code, access_code: monoAccessCode });
+            const resp = await api.post('/settings/mono/link', { code: code, access_code: monoAccessCode });
             console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
             setSuccess(resp.data?.msg || 'Account successfully linked and secured with your access code.');
             setMonoAccessCode('');
@@ -403,7 +404,8 @@ const Settings = () => {
             setMonoLoading(false);
           }
         }
-      });
+      };
+      const connect = new window.MonoConnect(monoConfig);
       
       connect.setup();
       connect.open();

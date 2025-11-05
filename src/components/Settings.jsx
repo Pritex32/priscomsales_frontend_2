@@ -268,7 +268,7 @@ const Settings = () => {
 
   // Mono helpers
   const ensureMonoScript = async () => {
-    const waitForMono = (timeoutMs = 10000, pollMs = 100) => new Promise((res) => {
+    const waitForMono = (timeoutMs = 15000, pollMs = 100) => new Promise((res) => {
       const start = Date.now();
       const t = setInterval(() => {
         if (window.MonoConnect) {
@@ -301,17 +301,12 @@ const Settings = () => {
         const s = document.createElement('script');
         s.src = src;
         s.async = true;
-        s.crossOrigin = 'anonymous';
+        s.type = 'text/javascript';
         
         s.onload = async () => {
           console.log('DEBUG: Mono script onload event fired from', src);
           
-          // Try to map module if needed
-          if (!window.MonoConnect && window['@mono.co/connect.js']) {
-            const mod = window['@mono.co/connect.js'];
-            window.MonoConnect = mod?.default || mod?.MonoConnect || mod;
-            console.log('DEBUG: Mapped window["@mono.co/connect.js"] to window.MonoConnect');
-          }
+          
           
           // Wait for MonoConnect to be available
           const ok = await waitForMono();
@@ -327,6 +322,10 @@ const Settings = () => {
         
         s.onerror = (e) => {
           console.error('DEBUG: Mono script onerror from', src, e);
+          // Remove failed script
+          if (s.parentNode) {
+            s.parentNode.removeChild(s);
+          }
           if (onFail) onFail();
           else resolve(false);
         };
@@ -336,9 +335,9 @@ const Settings = () => {
 
       // Try primary URL first, then fallback
       console.log('DEBUG: Starting Mono script load sequence');
-      tryLoad('https://connect.withmono.com/connect.js', () => {
+      tryLoad('https://connect.mono.co/connect.js', () => {
         console.log('DEBUG: Primary URL failed, trying fallback');
-        tryLoad('https://connect.mono.co/v2/mono-connect.js', () => {
+        tryLoad('https://cdn.mono.co/v1/connect.js', () => {
           console.error('DEBUG: Both Mono script URLs failed');
           resolve(false);
         });
@@ -359,27 +358,37 @@ const Settings = () => {
   const handleMonoConnect = async () => {
     console.log('DEBUG: Initiating Mono Connect, access_code provided?', !!monoAccessCode, 'publicKeyPresent?', !!MONO_PUBLIC_KEY);
     setError(''); setSuccess('');
+    
     if (!monoAccessCode.trim()) {
       setError('Please enter your access code');
       return;
     }
-    const ok = await ensureMonoScript();
-    if (!ok || !window.MonoConnect) {
-      setError('Failed to load Mono Connect. Check your network and try again.');
+
+    if (!MONO_PUBLIC_KEY) {
+      setError('Mono public key is not configured. Please contact support.');
       return;
     }
+
+    setMonoLoading(true);
+    
     try {
-      setMonoLoading(true);
-      const MonoCtor = window.MonoConnect || (window['@mono.co/connect.js'] && (window['@mono.co/connect.js'].default || window['@mono.co/connect.js'].MonoConnect));
-      if (!MonoCtor) {
-        setError('Mono Connect script not loaded');
+      // Ensure Mono script is loaded
+      const ok = await ensureMonoScript();
+      if (!ok || !window.MonoConnect) {
+        setError('Failed to load Mono Connect. Please check your internet connection and try again. If the problem persists, try refreshing the page.');
         setMonoLoading(false);
         return;
       }
+
+      console.log('DEBUG: MonoConnect available, initializing widget');
+      
       // Initialize and open
-      const connect = new MonoCtor({
+      const connect = new window.MonoConnect({
         key: MONO_PUBLIC_KEY,
-        onClose: () => {},
+        onClose: () => {
+          console.log('DEBUG: Mono widget closed');
+          setMonoLoading(false);
+        },
         onSuccess: async ({ code }) => {
           try {
             const resp = await api.post('/settings/mono/link', { code, access_code: monoAccessCode });
@@ -393,6 +402,10 @@ const Settings = () => {
           } finally {
             setMonoLoading(false);
           }
+        },
+         },
+        onEvent: (eventName, data) => {
+          console.log('DEBUG: Mono event:', eventName, data);
         },
       });
       connect.setup();
@@ -698,10 +711,10 @@ const Settings = () => {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Access Code</label>
-                <input value={monoAccessCode} onChange={e => setMonoAccessCode(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter your access code" />
+                <input value={monoAccessCode} onChange={e => setMonoAccessCode(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter your access code" disabled={monoLoading} />
                 <div className="text-xs text-gray-500 mt-1">Your access code will be verified before linking your account.</div>
               </div>
-              <button onClick={handleMonoConnect} disabled={monoLoading} className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+              <button onClick={handleMonoConnect} disabled={monoLoading || !monoAccessCode.trim()} className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 {monoLoading ? 'Connecting...' : 'Connect via Mono'}
               </button>
               <div className="text-xs text-gray-500">Mono Public Key: {MONO_PUBLIC_KEY ? 'Loaded' : 'Missing (set REACT_APP_MONO_PUBLIC_KEY)'}

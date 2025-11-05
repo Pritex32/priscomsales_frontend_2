@@ -654,7 +654,7 @@ const ProductCard = ({ product, onAddToCart }) => {
         </div>
 
         {/* Size Selection */}
-        {product.product_size && product.product_size.length > 0 && (
+        {product.product_size && Array.isArray(product.product_size) && product.product_size.length > 0 && (
           <div className="mb-3">
             <label className="text-sm font-medium text-gray-700 block mb-1">Size:</label>
             <select
@@ -671,7 +671,7 @@ const ProductCard = ({ product, onAddToCart }) => {
         )}
 
         {/* Color Selection */}
-        {product.colors && product.colors.length > 0 && (
+        {product.colors && Array.isArray(product.colors) && product.colors.length > 0 && (
           <div className="mb-3">
             <label className="text-sm font-medium text-gray-700 block mb-1">Color:</label>
             <select

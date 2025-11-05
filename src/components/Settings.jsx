@@ -264,6 +264,7 @@ const Settings = () => {
   // Load data when tab changes
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // Mono helpers
@@ -306,8 +307,6 @@ const Settings = () => {
         s.onload = async () => {
           console.log('DEBUG: Mono script onload event fired from', src);
           
-          
-          
           // Wait for MonoConnect to be available
           const ok = await waitForMono();
           if (ok) {
@@ -333,10 +332,10 @@ const Settings = () => {
         document.head.appendChild(s);
       };
 
-      // Try primary URL first, then fallback
+      // Try the correct Mono Connect URL
       console.log('DEBUG: Starting Mono script load sequence');
       tryLoad('https://connect.mono.co/connect.js', () => {
-        console.log('DEBUG: Primary URL failed, trying fallback');
+        console.log('DEBUG: Primary URL failed, trying CDN fallback');
         tryLoad('https://cdn.mono.co/v1/connect.js', () => {
           console.error('DEBUG: Both Mono script URLs failed');
           resolve(false);
@@ -390,6 +389,7 @@ const Settings = () => {
           setMonoLoading(false);
         },
         onSuccess: async ({ code }) => {
+          console.log('DEBUG: Mono onSuccess callback triggered with code');
           try {
             const resp = await api.post('/settings/mono/link', { code, access_code: monoAccessCode });
             console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
@@ -398,20 +398,22 @@ const Settings = () => {
             await loadLinkedAccounts();
           } catch (e) {
             console.error('DEBUG: /settings/mono/link error:', e?.response?.status, e?.response?.data || e?.message);
-            setError(e.response?.data?.detail || 'Failed to link account');
+            setError(e.response?.data?.detail || 'Failed to link account. Please try again.');
           } finally {
             setMonoLoading(false);
           }
         },
-         },
         onEvent: (eventName, data) => {
           console.log('DEBUG: Mono event:', eventName, data);
         },
       });
+      
       connect.setup();
       connect.open();
+      console.log('DEBUG: Mono widget opened');
     } catch (e) {
-      setError(e.message || 'Mono Connect failed to initialize');
+      console.error('DEBUG: Mono Connect initialization error:', e);
+      setError(e.message || 'Mono Connect failed to initialize. Please try again.');
       setMonoLoading(false);
     }
   };
@@ -709,15 +711,38 @@ const Settings = () => {
             </div>
           ) : (
             <div className="space-y-3">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                <strong>Note:</strong> Make sure you have a stable internet connection. If you encounter issues, try:
+                <ul className="list-disc ml-5 mt-1">
+                  <li>Disabling browser extensions (especially ad blockers)</li>
+                  <li>Refreshing the page and trying again</li>
+                  <li>Using a different browser</li>
+                </ul>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Access Code</label>
-                <input value={monoAccessCode} onChange={e => setMonoAccessCode(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter your access code" disabled={monoLoading} />
+                <input
+                  value={monoAccessCode}
+                  onChange={e => setMonoAccessCode(e.target.value)}
+                  className="border rounded px-3 py-2 w-full"
+                  placeholder="Enter your access code"
+                  disabled={monoLoading}
+                />
                 <div className="text-xs text-gray-500 mt-1">Your access code will be verified before linking your account.</div>
               </div>
-              <button onClick={handleMonoConnect} disabled={monoLoading || !monoAccessCode.trim()} className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              
+              <button
+                onClick={handleMonoConnect}
+                disabled={monoLoading || !monoAccessCode.trim()}
+                className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {monoLoading ? 'Connecting...' : 'Connect via Mono'}
               </button>
-              <div className="text-xs text-gray-500">Mono Public Key: {MONO_PUBLIC_KEY ? 'Loaded' : 'Missing (set REACT_APP_MONO_PUBLIC_KEY)'}
+              
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>Mono Public Key: {MONO_PUBLIC_KEY ? '✓ Loaded' : '✗ Missing (set REACT_APP_MONO_PUBLIC_KEY)'}</div>
+                <div>Script Status: {window.MonoConnect ? '✓ Ready' : '⏳ Will load when needed'}</div>
               </div>
             </div>
           )}

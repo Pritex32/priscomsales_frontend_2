@@ -1280,7 +1280,7 @@ const Restock = () => {
                           row.warehouse_name || ''
                         ].join(',')
                       )
-                    ).join('\\n');
+                    ).join('\n');
                   
                   const encodedUri = encodeURI(csvContent);
                   const link = document.createElement('a');

@@ -403,9 +403,9 @@ const Settings = () => {
             setMonoLoading(false);
           }
         },
-        onEvent: (eventName, data) => {
+        onEvent(eventName, data) {
           console.log('DEBUG: Mono event:', eventName, data);
-        },
+        }
       });
       
       connect.setup();

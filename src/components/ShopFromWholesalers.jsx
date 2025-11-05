@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
-import { 
-  ShoppingCart, 
-  Package, 
-  Trash2, 
-  Plus, 
-  Minus, 
+import {
+  ShoppingCart,
+  Package,
+  Trash2,
+  Plus,
+  Minus,
   CreditCard,
   CheckCircle,
   XCircle,
   AlertCircle,
   Filter,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 
 const ShopFromWholesalers = () => {
@@ -48,6 +49,16 @@ const ShopFromWholesalers = () => {
   
   // Payment verification
   const [verifying, setVerifying] = useState(false);
+  
+  // Disputes
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [selectedOrderForDispute, setSelectedOrderForDispute] = useState(null);
+  const [disputeData, setDisputeData] = useState({
+    reason: '',
+    description: '',
+    evidence_url: ''
+  });
+  const [userOrders, setUserOrders] = useState([]);
 
   // Fetch products
   const fetchProducts = async (page = 1, category = '') => {
@@ -186,18 +197,65 @@ const ShopFromWholesalers = () => {
     }
   };
 
+  // Fetch user orders
+  const fetchUserOrders = async () => {
+    try {
+      const response = await api.get('/shop/orders');
+      setUserOrders(response.data.orders || []);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+    }
+  };
+
+  // Submit dispute
+  const submitDispute = async () => {
+    if (!selectedOrderForDispute || !disputeData.reason || !disputeData.description) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await api.post('/shop/disputes', {
+        order_id: selectedOrderForDispute.order_id,
+        reason: disputeData.reason,
+        description: disputeData.description,
+        evidence_url: disputeData.evidence_url || null
+      });
+
+      setSuccess('Dispute submitted successfully');
+      setShowDisputeForm(false);
+      setSelectedOrderForDispute(null);
+      setDisputeData({ reason: '', description: '', evidence_url: '' });
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to submit dispute');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   // Initial load
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-    fetchCart();
+    const loadData = async () => {
+      try {
+        await fetchProducts();
+        await fetchCategories();
+        await fetchCart();
+        await fetchUserOrders();
+        
+        // Check for payment verification
+        const reference = searchParams.get('reference') || searchParams.get('trxref');
+        if (reference) {
+          await verifyPayment(reference);
+        }
+      } catch (error) {
+        console.error('Error loading shop data:', error);
+        setError('Failed to load shop. Please refresh the page.');
+        setLoading(false);
+      }
+    };
     
-    // Check for payment verification
-    const reference = searchParams.get('reference') || searchParams.get('trxref');
-    if (reference) {
-      verifyPayment(reference);
-    }
-  }, [searchParams]);
+    loadData();
+  }, []);
 
   // Filter products
   const filteredProducts = products.filter(product => {
@@ -218,13 +276,22 @@ const ShopFromWholesalers = () => {
               </h1>
               <p className="text-gray-600 mt-2">Browse and order products from verified wholesalers</p>
             </div>
-            <button
-              onClick={() => setShowCheckout(!showCheckout)}
-              className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Cart ({cart.length})
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDisputeForm(true)}
+                className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                <AlertTriangle className="w-5 h-5" />
+                Dispute
+              </button>
+              <button
+                onClick={() => setShowCheckout(!showCheckout)}
+                className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Cart ({cart.length})
+              </button>
+            </div>
           </div>
 
           {/* Search and Filter */}
@@ -386,6 +453,128 @@ const ShopFromWholesalers = () => {
           </div>
         </div>
       </div>
+
+      {/* Dispute Modal */}
+      {showDisputeForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  File a Dispute
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowDisputeForm(false);
+                    setSelectedOrderForDispute(null);
+                    setDisputeData({ reason: '', description: '', evidence_url: '' });
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Select Order */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Order <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedOrderForDispute?.order_id || ''}
+                    onChange={(e) => {
+                      const order = userOrders.find(o => o.order_id === parseInt(e.target.value));
+                      setSelectedOrderForDispute(order);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="">Select an order</option>
+                    {userOrders.map(order => (
+                      <option key={order.order_id} value={order.order_id}>
+                        Order #{order.order_id} - {order.product_names} (₦{order.total_price?.toLocaleString('en-NG')})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={disputeData.reason}
+                    onChange={(e) => setDisputeData({ ...disputeData, reason: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="">Select a reason</option>
+                    <option value="Product not received">Product not received</option>
+                    <option value="Wrong product delivered">Wrong product delivered</option>
+                    <option value="Damaged product">Damaged product</option>
+                    <option value="Incomplete order">Incomplete order</option>
+                    <option value="Quality issues">Quality issues</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={disputeData.description}
+                    onChange={(e) => setDisputeData({ ...disputeData, description: e.target.value })}
+                    rows={4}
+                    placeholder="Please provide detailed information about your dispute..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Evidence URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Evidence URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={disputeData.evidence_url}
+                    onChange={(e) => setDisputeData({ ...disputeData, evidence_url: e.target.value })}
+                    placeholder="https://example.com/evidence.jpg"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Provide a link to photos or documents supporting your dispute
+                  </p>
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowDisputeForm(false);
+                      setSelectedOrderForDispute(null);
+                      setDisputeData({ reason: '', description: '', evidence_url: '' });
+                    }}
+                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitDispute}
+                    className="flex-1 bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <AlertTriangle className="w-5 h-5" />
+                    Submit Dispute
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

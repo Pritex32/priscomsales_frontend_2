@@ -574,22 +574,36 @@ const Restock = () => {
 
   const validatePriceUpdateForm = () => {
     const errors = [];
+    console.log('=== PRICE UPDATE VALIDATION DEBUG ===');
+    console.log('Warehouse Name:', priceUpdateForm.warehouse_name);
+    console.log('Selected Items:', priceUpdateForm.selected_items);
+    console.log('Selected Items Count:', priceUpdateForm.selected_items.length);
     
     if (!priceUpdateForm.warehouse_name) {
       errors.push('Please select a warehouse');
+      console.error('Validation Error: No warehouse selected');
     }
     if (!priceUpdateForm.selected_items.length) {
       errors.push('Please select at least one item to update');
+      console.error('Validation Error: No items selected');
     }
     if (priceUpdateForm.selected_items.some(item => item.new_price < 0)) {
       errors.push('Prices cannot be negative');
+      console.error('Validation Error: Negative prices detected');
+      console.error('Items with negative prices:', priceUpdateForm.selected_items.filte
     }
     
     if (errors.length > 0) {
       toast.error(errors.join('\n'));
+      console.error('=== VALIDATION FAILED ===');
+      console.error('All Errors:', errors);
+      console.error('Form State:', JSON.stringify(priceUpdateForm, null, 2));
+      console.error('=====================================');
+      toast.error(errors.join('\n'));
       return false;
     }
-    
+    console.log('=== VALIDATION PASSED ===');
+    console.log('=====================================');
     return true;
   };
 

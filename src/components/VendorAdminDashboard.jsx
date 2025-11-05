@@ -13,6 +13,12 @@ const VendorAdminDashboard = () => {
   const navigate = useNavigate();
   const { user, role } = useSelector(state => state.auth);
   const [activeTab, setActiveTab] = useState('vendors');
+  // Disputes
+  const [showDisputesModal, setShowDisputesModal] = useState(false);
+  const [disputes, setDisputes] = useState([]);
+  const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+  const [vendorSuggestions, setVendorSuggestions] = useState([]);
+  const [selectedDispute, setSelectedDispute] = useState(null);
   const [pendingVendors, setPendingVendors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -178,6 +184,47 @@ const VendorAdminDashboard = () => {
       setDeleteReason('');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to delete product');
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Fetch all disputes
+  const fetchDisputes = async () => {
+    try {
+      const response = await api.get('/shop/admin/disputes');
+      setDisputes(response.data.disputes || []);
+    } catch (error) {
+      toast.error('Failed to fetch disputes');
+      console.error(error);
+    }
+  };
+
+  // Search vendors
+  const searchVendors = async (query) => {
+    if (query.length < 2) {
+      setVendorSuggestions([]);
+      return;
+    }
+    
+    try {
+      const response = await api.get('/shop/admin/vendors/search', {
+        params: { query }
+      });
+      setVendorSuggestions(response.data.vendors || []);
+    } catch (error) {
+      console.error('Failed to search vendors:', error);
+    }
+  };
+
+  // Resolve dispute
+  const handleResolveDispute = async (disputeId) => {
+    try {
+      setLoading(true);
+      await api.put(`/shop/admin/disputes/${disputeId}/resolve`);
+      toast.success('Dispute resolved successfully');
+      fetchDisputes();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to resolve dispute');
     } finally {
       setLoading(false);
     }
@@ -855,6 +902,130 @@ const VendorAdminDashboard = () => {
                 >
                   {loading ? 'Deleting...' : 'Confirm Delete'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Disputes Resolution Modal */}
+      {showDisputesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDisputesModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-orange-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <AlertTriangle className="w-8 h-8 text-white" />
+                  <h2 className="text-2xl font-bold text-white">Resolve Disputes</h2>
+                </div>
+                <button onClick={() => setShowDisputesModal(false)} className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {/* Vendor Search */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search Vendor
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={vendorSearchQuery}
+                    onChange={(e) => {
+                      setVendorSearchQuery(e.target.value);
+                      searchVendors(e.target.value);
+                    }}
+                    placeholder="Type vendor name..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  {vendorSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {vendorSuggestions.map((vendor) => (
+                        <button
+                          key={vendor.vendor_id}
+                          onClick={() => {
+                            setVendorSearchQuery(vendor.name);
+                            setVendorSuggestions([]);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                        >
+                          {vendor.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Disputes List */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900 text-lg">All Disputes</h3>
+                {disputes.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg">
+                    <AlertTriangle className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600">No disputes found</p>
+                  </div>
+                ) : (
+                  disputes.map((dispute) => (
+                    <div key={dispute.dispute_id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-bold text-gray-900">Dispute #{dispute.dispute_id}</h4>
+                          <p className="text-sm text-gray-600">Order ID: {dispute.order_id}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          dispute.status === 'Resolved'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {dispute.status}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 mb-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Reason:</p>
+                          <p className="text-sm text-gray-900">{dispute.reason}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Description:</p>
+                          <p className="text-sm text-gray-900">{dispute.description}</p>
+                        </div>
+                        {dispute.evidence_url && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Evidence:</p>
+                            <a
+                              href={dispute.evidence_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              View Evidence
+                            </a>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm text-gray-500">
+                            Created: {new Date(dispute.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {dispute.status === 'Pending' && (
+                        <button
+                          onClick={() => handleResolveDispute(dispute.dispute_id)}
+                          disabled={loading}
+                          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          {loading ? 'Resolving...' : 'Mark as Resolved'}
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

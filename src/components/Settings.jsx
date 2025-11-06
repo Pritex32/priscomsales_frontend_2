@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import ManageEmployeeAccess from '../pages/ManageEmployeeAccess';
+import Tooltip from './Tooltip';
 
 const TabButton = ({ active, onClick, children }) => (
   <button onClick={onClick} className={`px-4 py-2 rounded-md text-sm font-medium ${
@@ -214,59 +216,61 @@ const Settings = () => {
     setEditOfficerEmail(officer.officer_email);
   };
 
-  // Load current access code
-  const loadCurrentAccessCode = async () => {
-    try {
-      // Try to get user info which might include access code
-      const res = await api.get('/auth/me');
-      if (res.data && res.data.access_code) {
-        setAccessCode(res.data.access_code);
-      }
-    } catch (e) {
-      // Access code endpoint might not exist, ignore error
-      console.log('Current access code not available:', e.response?.data?.detail || e.message);
-    }
-  };
-
-  // Load initial data
-  const loadInitialData = async () => {
-    if (tab === 'Company') {
-      // Load company data (if endpoint exists)
-      try {
-        const res = await api.get('/sales/company');
-        if (res.data) {
-          const data = res.data;
-          setTenantName(data.tenant_name || '');
-          setPhoneNumber(data.phone_number || '');
-          setAddress(data.address || '');
-          setAccountNumber(data.account_number || '');
-          setBankName(data.bank_name || '');
-          setAccountName(data.account_name || '');
-        }
-      } catch (e) {
-        // Company data endpoint might not exist, ignore error
-        console.log('Company data not available:', e.response?.data?.detail || e.message);
-      }
-    }
-    
-    if (tab === 'Access Code') {
-      loadCurrentAccessCode();
-    }
-
-    if (tab === 'Bank & POS') {
-      await loadLinkedAccounts();
-      await ensureMonoScript();
-    }
-  };
 
   // Load data when tab changes
   useEffect(() => {
+    const loadInitialData = async () => {
+      if (tab === 'Company') {
+        // Load company data (if endpoint exists)
+        try {
+          const res = await api.get('/sales/company');
+          if (res.data) {
+            const data = res.data;
+            setTenantName(data.tenant_name || '');
+            setPhoneNumber(data.phone_number || '');
+            setAddress(data.address || '');
+            setAccountNumber(data.account_number || '');
+            setBankName(data.bank_name || '');
+            setAccountName(data.account_name || '');
+          }
+        } catch (e) {
+          // Company data endpoint might not exist, ignore error
+          console.log('Company data not available:', e.response?.data?.detail || e.message);
+        }
+      }
+      
+      if (tab === 'Access Code') {
+        try {
+          // Try to get user info which might include access code
+          const res = await api.get('/auth/me');
+          if (res.data && res.data.access_code) {
+            setAccessCode(res.data.access_code);
+          }
+        } catch (e) {
+          // Access code endpoint might not exist, ignore error
+          console.log('Current access code not available:', e.response?.data?.detail || e.message);
+        }
+      }
+
+      if (tab === 'Bank & POS') {
+        try {
+          const res = await api.get('/settings/linked-accounts');
+          setLinkedAccounts(res.data || []);
+        } catch (e) {
+          console.log('No linked accounts or failed to load:', e.response?.data?.detail || e.message);
+          setLinkedAccounts([]);
+        }
+        
+        await ensureMonoScript();
+      }
+    };
+
     loadInitialData();
   }, [tab]);
 
   // Mono helpers
   const ensureMonoScript = async () => {
-    const waitForMono = (timeoutMs = 10000, pollMs = 100) => new Promise((res) => {
+    const waitForMono = (timeoutMs = 15000, pollMs = 100) => new Promise((res) => {
       const start = Date.now();
       const t = setInterval(() => {
         if (window.MonoConnect) {
@@ -299,17 +303,10 @@ const Settings = () => {
         const s = document.createElement('script');
         s.src = src;
         s.async = true;
-        s.crossOrigin = 'anonymous';
+        s.type = 'text/javascript';
         
         s.onload = async () => {
           console.log('DEBUG: Mono script onload event fired from', src);
-          
-          // Try to map module if needed
-          if (!window.MonoConnect && window['@mono.co/connect.js']) {
-            const mod = window['@mono.co/connect.js'];
-            window.MonoConnect = mod?.default || mod?.MonoConnect || mod;
-            console.log('DEBUG: Mapped window["@mono.co/connect.js"] to window.MonoConnect');
-          }
           
           // Wait for MonoConnect to be available
           const ok = await waitForMono();
@@ -325,6 +322,10 @@ const Settings = () => {
         
         s.onerror = (e) => {
           console.error('DEBUG: Mono script onerror from', src, e);
+          // Remove failed script
+          if (s.parentNode) {
+            s.parentNode.removeChild(s);
+          }
           if (onFail) onFail();
           else resolve(false);
         };
@@ -332,11 +333,11 @@ const Settings = () => {
         document.head.appendChild(s);
       };
 
-      // Try primary URL first, then fallback
+      // Try the correct Mono Connect URL
       console.log('DEBUG: Starting Mono script load sequence');
-      tryLoad('https://connect.withmono.com/connect.js', () => {
-        console.log('DEBUG: Primary URL failed, trying fallback');
-        tryLoad('https://connect.mono.co/v2/mono-connect.js', () => {
+      tryLoad('https://connect.mono.co/connect.js', () => {
+        console.log('DEBUG: Primary URL failed, trying CDN fallback');
+        tryLoad('https://cdn.mono.co/v1/connect.js', () => {
           console.error('DEBUG: Both Mono script URLs failed');
           resolve(false);
         });
@@ -344,59 +345,67 @@ const Settings = () => {
     });
   };
 
-  const loadLinkedAccounts = async () => {
-    try {
-      const res = await api.get('/settings/linked-accounts');
-      setLinkedAccounts(res.data || []);
-    } catch (e) {
-      console.log('No linked accounts or failed to load:', e.response?.data?.detail || e.message);
-      setLinkedAccounts([]);
-    }
-  };
 
   const handleMonoConnect = async () => {
     console.log('DEBUG: Initiating Mono Connect, access_code provided?', !!monoAccessCode, 'publicKeyPresent?', !!MONO_PUBLIC_KEY);
     setError(''); setSuccess('');
+    
     if (!monoAccessCode.trim()) {
       setError('Please enter your access code');
       return;
     }
-    const ok = await ensureMonoScript();
-    if (!ok || !window.MonoConnect) {
-      setError('Failed to load Mono Connect. Check your network and try again.');
+
+    if (!MONO_PUBLIC_KEY) {
+      setError('Mono public key is not configured. Please contact support.');
       return;
     }
+
+    setMonoLoading(true);
+    
     try {
-      setMonoLoading(true);
-      const MonoCtor = window.MonoConnect || (window['@mono.co/connect.js'] && (window['@mono.co/connect.js'].default || window['@mono.co/connect.js'].MonoConnect));
-      if (!MonoCtor) {
-        setError('Mono Connect script not loaded');
+      // Ensure Mono script is loaded
+      const ok = await ensureMonoScript();
+      if (!ok || !window.MonoConnect) {
+        setError('Failed to load Mono Connect. Please check your internet connection and try again. If the problem persists, try refreshing the page.');
         setMonoLoading(false);
         return;
       }
+
+      console.log('DEBUG: MonoConnect available, initializing widget');
+      
       // Initialize and open
-      const connect = new MonoCtor({
+      const connect = new window.MonoConnect({
         key: MONO_PUBLIC_KEY,
-        onClose: () => {},
-        onSuccess: async ({ code }) => {
-          try {
-            const resp = await api.post('/settings/mono/link', { code, access_code: monoAccessCode });
-            console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
-            setSuccess(resp.data?.msg || 'Account successfully linked and secured with your access code.');
-            setMonoAccessCode('');
-            await loadLinkedAccounts();
-          } catch (e) {
-            console.error('DEBUG: /settings/mono/link error:', e?.response?.status, e?.response?.data || e?.message);
-            setError(e.response?.data?.detail || 'Failed to link account');
-          } finally {
-            setMonoLoading(false);
-          }
+        onClose: function() {
+          console.log('DEBUG: Mono widget closed');
+          setMonoLoading(false);
         },
+        onSuccess: function(response) {
+          console.log('DEBUG: Mono onSuccess callback triggered with code');
+          const code = response.code;
+          api.post('/settings/mono/link', { code: code, access_code: monoAccessCode })
+            .then(function(resp) {
+              console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
+              setSuccess(resp.data?.msg || 'Account successfully linked and secured with your access code.');
+              setMonoAccessCode('');
+              return loadLinkedAccounts();
+            })
+            .catch(function(e) {
+              console.error('DEBUG: /settings/mono/link error:', e?.response?.status, e?.response?.data || e?.message);
+              setError(e.response?.data?.detail || 'Failed to link account. Please try again.');
+            })
+            .finally(function() {
+              setMonoLoading(false);
+            });
+        }
       });
+      
       connect.setup();
       connect.open();
+      console.log('DEBUG: Mono widget opened');
     } catch (e) {
-      setError(e.message || 'Mono Connect failed to initialize');
+      console.error('DEBUG: Mono Connect initialization error:', e);
+      setError(e.message || 'Mono Connect failed to initialize. Please try again.');
       setMonoLoading(false);
     }
   };
@@ -444,7 +453,7 @@ const Settings = () => {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <div className="flex gap-2 flex-wrap">
-          {['Company', 'Access Code', 'Password', 'Officers', 'Bank & POS', 'Delete Account'].map(t => (
+          {['Company', 'Access Code', 'Password', 'Officers', 'Manage Access', 'Bank & POS', 'Delete Account'].map(t => (
             <TabButton key={t} active={tab === t} onClick={() => setTab(t)}>{t}</TabButton>
           ))}
         </div>
@@ -462,11 +471,17 @@ const Settings = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  Company Name
+                  <Tooltip text="This name will appear on all receipts and invoices" />
+                </label>
                 <input value={tenantName} onChange={e => setTenantName(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter company name" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  Phone Number
+                  <Tooltip text="Contact number displayed on customer receipts" />
+                </label>
                 <input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter phone number" />
               </div>
               <div className="md:col-span-2">
@@ -474,15 +489,24 @@ const Settings = () => {
                 <textarea value={address} onChange={e => setAddress(e.target.value)} className="border rounded px-3 py-2 w-full" rows="2" placeholder="Enter company address" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  Bank Name
+                  <Tooltip text="Bank where your business account is held" />
+                </label>
                 <input value={bankName} onChange={e => setBankName(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter bank name" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  Account Number
+                  <Tooltip text="Your business bank account number for customer payments" />
+                </label>
                 <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter account number" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  Account Name
+                  <Tooltip text="Name registered to your business bank account" />
+                </label>
                 <input value={accountName} onChange={e => setAccountName(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter account name" />
               </div>
             </div>
@@ -522,9 +546,12 @@ const Settings = () => {
           )}
 
           <div className="space-y-3">
-            <button onClick={generateAccessCode} disabled={loading} className="px-6 py-3 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-              {loading ? 'Generating...' : 'Generate Random Access Code'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={generateAccessCode} disabled={loading} className="px-6 py-3 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                {loading ? 'Generating...' : 'Generate Random Access Code'}
+              </button>
+              <Tooltip text="Generate a secure random code for employee access control" position="right" />
+            </div>
 
             <div className="border-t pt-3">
               <label className="block text-sm font-medium text-gray-700 mb-2">Or Set Custom Access Code</label>
@@ -574,14 +601,20 @@ const Settings = () => {
           <div className="bg-white rounded shadow p-6 space-y-4">
             <h2 className="text-lg font-semibold">Add Inventory Officer</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Officer Name</label>
-                <input value={newOfficerName} onChange={e => setNewOfficerName(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter officer name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Officer Email</label>
-                <input type="email" value={newOfficerEmail} onChange={e => setNewOfficerEmail(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter officer email" />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                Officer Name
+                <Tooltip text="Full name of the inventory officer" />
+              </label>
+              <input value={newOfficerName} onChange={e => setNewOfficerName(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter officer name" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                Officer Email
+                <Tooltip text="Email address for inventory notifications and reports" />
+              </label>
+              <input type="email" value={newOfficerEmail} onChange={e => setNewOfficerEmail(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter officer email" />
+            </div>
             </div>
             <button onClick={addOfficer} disabled={loading} className="px-6 py-3 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
               {loading ? 'Adding...' : 'Add Officer'}
@@ -643,6 +676,10 @@ const Settings = () => {
         </div>
       )}
 
+      {tab === 'Manage Access' && (
+        <ManageEmployeeAccess />
+      )}
+
       {tab === 'Bank & POS' && (
         <div className="bg-white rounded shadow p-6 space-y-4">
           <h2 className="text-lg font-semibold">Bank & POS Connection (Mono)</h2>
@@ -666,15 +703,38 @@ const Settings = () => {
             </div>
           ) : (
             <div className="space-y-3">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                <strong>Note:</strong> Make sure you have a stable internet connection. If you encounter issues, try:
+                <ul className="list-disc ml-5 mt-1">
+                  <li>Disabling browser extensions (especially ad blockers)</li>
+                  <li>Refreshing the page and trying again</li>
+                  <li>Using a different browser</li>
+                </ul>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Access Code</label>
-                <input value={monoAccessCode} onChange={e => setMonoAccessCode(e.target.value)} className="border rounded px-3 py-2 w-full" placeholder="Enter your access code" />
+                <input
+                  value={monoAccessCode}
+                  onChange={e => setMonoAccessCode(e.target.value)}
+                  className="border rounded px-3 py-2 w-full"
+                  placeholder="Enter your access code"
+                  disabled={monoLoading}
+                />
                 <div className="text-xs text-gray-500 mt-1">Your access code will be verified before linking your account.</div>
               </div>
-              <button onClick={handleMonoConnect} disabled={monoLoading} className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+              
+              <button
+                onClick={handleMonoConnect}
+                disabled={monoLoading || !monoAccessCode.trim()}
+                className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {monoLoading ? 'Connecting...' : 'Connect via Mono'}
               </button>
-              <div className="text-xs text-gray-500">Mono Public Key: {MONO_PUBLIC_KEY ? 'Loaded' : 'Missing (set REACT_APP_MONO_PUBLIC_KEY)'}
+              
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>Mono Public Key: {MONO_PUBLIC_KEY ? '✓ Loaded' : '✗ Missing (set REACT_APP_MONO_PUBLIC_KEY)'}</div>
+                <div>Script Status: {window.MonoConnect ? '✓ Ready' : '⏳ Will load when needed'}</div>
               </div>
             </div>
           )}

@@ -216,55 +216,56 @@ const Settings = () => {
     setEditOfficerEmail(officer.officer_email);
   };
 
-  // Load current access code
-  const loadCurrentAccessCode = async () => {
-    try {
-      // Try to get user info which might include access code
-      const res = await api.get('/auth/me');
-      if (res.data && res.data.access_code) {
-        setAccessCode(res.data.access_code);
-      }
-    } catch (e) {
-      // Access code endpoint might not exist, ignore error
-      console.log('Current access code not available:', e.response?.data?.detail || e.message);
-    }
-  };
-
-  // Load initial data
-  const loadInitialData = async () => {
-    if (tab === 'Company') {
-      // Load company data (if endpoint exists)
-      try {
-        const res = await api.get('/sales/company');
-        if (res.data) {
-          const data = res.data;
-          setTenantName(data.tenant_name || '');
-          setPhoneNumber(data.phone_number || '');
-          setAddress(data.address || '');
-          setAccountNumber(data.account_number || '');
-          setBankName(data.bank_name || '');
-          setAccountName(data.account_name || '');
-        }
-      } catch (e) {
-        // Company data endpoint might not exist, ignore error
-        console.log('Company data not available:', e.response?.data?.detail || e.message);
-      }
-    }
-    
-    if (tab === 'Access Code') {
-      loadCurrentAccessCode();
-    }
-
-    if (tab === 'Bank & POS') {
-      await loadLinkedAccounts();
-      await ensureMonoScript();
-    }
-  };
 
   // Load data when tab changes
   useEffect(() => {
+    const loadInitialData = async () => {
+      if (tab === 'Company') {
+        // Load company data (if endpoint exists)
+        try {
+          const res = await api.get('/sales/company');
+          if (res.data) {
+            const data = res.data;
+            setTenantName(data.tenant_name || '');
+            setPhoneNumber(data.phone_number || '');
+            setAddress(data.address || '');
+            setAccountNumber(data.account_number || '');
+            setBankName(data.bank_name || '');
+            setAccountName(data.account_name || '');
+          }
+        } catch (e) {
+          // Company data endpoint might not exist, ignore error
+          console.log('Company data not available:', e.response?.data?.detail || e.message);
+        }
+      }
+      
+      if (tab === 'Access Code') {
+        try {
+          // Try to get user info which might include access code
+          const res = await api.get('/auth/me');
+          if (res.data && res.data.access_code) {
+            setAccessCode(res.data.access_code);
+          }
+        } catch (e) {
+          // Access code endpoint might not exist, ignore error
+          console.log('Current access code not available:', e.response?.data?.detail || e.message);
+        }
+      }
+
+      if (tab === 'Bank & POS') {
+        try {
+          const res = await api.get('/settings/linked-accounts');
+          setLinkedAccounts(res.data || []);
+        } catch (e) {
+          console.log('No linked accounts or failed to load:', e.response?.data?.detail || e.message);
+          setLinkedAccounts([]);
+        }
+        
+        await ensureMonoScript();
+      }
+    };
+
     loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // Mono helpers
@@ -344,15 +345,6 @@ const Settings = () => {
     });
   };
 
-  const loadLinkedAccounts = async () => {
-    try {
-      const res = await api.get('/settings/linked-accounts');
-      setLinkedAccounts(res.data || []);
-    } catch (e) {
-      console.log('No linked accounts or failed to load:', e.response?.data?.detail || e.message);
-      setLinkedAccounts([]);
-    }
-  };
 
   const handleMonoConnect = async () => {
     console.log('DEBUG: Initiating Mono Connect, access_code provided?', !!monoAccessCode, 'publicKeyPresent?', !!MONO_PUBLIC_KEY);

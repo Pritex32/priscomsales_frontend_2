@@ -157,19 +157,32 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
       setLoading(false);
     }
   };
+
   // Camera functions
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: 1920, height: 1080 }
+        video: { facingMode: 'environment' }
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setCameraActive(true);
+        
+        // Wait for video to be ready and play it
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play()
+            .then(() => {
+              setCameraActive(true);
+            })
+            .catch(err => {
+              console.error('Error playing video:', err);
+              setError('Failed to start camera preview: ' + err.message);
+            });
+        };
       }
     } catch (err) {
-      setError('Failed to access camera. Please check permissions.');
+      console.error('Camera access error:', err);
+      setError('Failed to access camera. Please check permissions: ' + err.message);
     }
   };
 
@@ -183,10 +196,19 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      setError('Camera not ready. Please try again.');
+      return;
+    }
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
+    
+    // Check if video has valid dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera not ready. Please wait a moment and try again.');
+      return;
+    }
     
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -224,6 +246,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
       }
     }, 'image/jpeg', 0.9);
   };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -639,6 +662,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
                 </div>
               )}
             </div>
+
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

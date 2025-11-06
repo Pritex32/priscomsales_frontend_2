@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Minus, 
-  Save, 
-  Package, 
-  User, 
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  ArrowLeft,
+  Plus,
+  Minus,
+  Save,
+  Package,
+  User,
   FileText,
   AlertCircle,
   CheckCircle,
@@ -26,7 +26,7 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     employee_id: null,
     employee_name: '',
     signature_base64: null,
-    items: [{ item: '', quantity: 1 }]
+    items: []
   });
 
   // Dropdown data
@@ -36,8 +36,8 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
   
   // UI states
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
-  const [itemSearches, setItemSearches] = useState(['']);
-  const [showItemDropdowns, setShowItemDropdowns] = useState([false]);
+  const [itemSearchInput, setItemSearchInput] = useState('');
+  const [showItemSuggestions, setShowItemSuggestions] = useState(false);
 
   // Signature capture
   const canvasRef = useRef(null);
@@ -117,114 +117,69 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     loadEmployees();
   }, []);
 
+  // Calculate available items (exclude already selected items)
+  const availableItemNames = useMemo(() => {
+    const selectedItems = new Set(formData.items.map(it => (it.item || '').trim()).filter(Boolean));
+    return Object.keys(inventoryItems).filter(name => !selectedItems.has(name));
+  }, [inventoryItems, formData.items]);
+
+  // Filter items based on search input for autocomplete
+  const suggestedItems = useMemo(() => {
+    if (!itemSearchInput.trim()) return availableItemNames;
+    const searchLower = itemSearchInput.toLowerCase().trim();
+    return availableItemNames.filter(name =>
+      name.toLowerCase().includes(searchLower)
+    );
+  }, [itemSearchInput, availableItemNames]);
+
   // Handle warehouse change
   const handleWarehouseChange = (warehouse) => {
     setSelectedWarehouse(warehouse);
     setFormData(prev => ({ ...prev, warehouse_name: warehouse }));
   };
 
-  // Handle item change
+  // Handle item selection from dropdown (auto-add, no duplicates, increment qty)
+  const handleItemSelect = (selectedName) => {
+    if (!selectedName) return;
+    const trimmed = selectedName.trim();
+    if (!trimmed) return;
+    
+    // Check if item already exists
+    const existingIdx = formData.items.findIndex(it => (it.item || '').trim() === trimmed);
+    if (existingIdx !== -1) {
+      // Item exists, increment quantity and move to top
+      const updated = [...formData.items];
+      const updatedItem = { ...updated[existingIdx], quantity: (parseInt(updated[existingIdx].quantity) || 0) + 1 };
+      updated.splice(existingIdx, 1); // Remove from current position
+      setFormData(prev => ({ ...prev, items: [updatedItem, ...updated] })); // Add to top
+    } else {
+      // Add new item to top
+      setFormData(prev => ({
+        ...prev,
+        items: [{
+          item: trimmed,
+          quantity: 1
+        }, ...prev.items]
+      }));
+    }
+    // Reset search input
+    setItemSearchInput('');
+    setShowItemSuggestions(false);
+  };
+
+  // Handle item change for existing items
   const handleItemChange = (index, field, value) => {
     const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    newItems[index][field] = value;
     setFormData(prev => ({ ...prev, items: newItems }));
-  };
-
-  // Handle item search
-  const handleItemSearch = (index, value) => {
-    const newSearches = [...itemSearches];
-    newSearches[index] = value;
-    setItemSearches(newSearches);
-
-    // Show/hide dropdown based on search term
-    const newDropdowns = [...showItemDropdowns];
-    newDropdowns[index] = value.length > 0;
-    setShowItemDropdowns(newDropdowns);
-  };
-
-  // Select item from dropdown - auto-add to top if selecting from search, increment if exists
-  const selectItem = (index, itemName) => {
-    // Check if this item already exists in the list
-    const existingIndex = formData.items.findIndex((it, idx) =>
-      idx !== index && it.item.trim().toLowerCase() === itemName.trim().toLowerCase()
-    );
-    
-    if (existingIndex !== -1) {
-      // Item exists elsewhere - increment its quantity and move to top
-      const updatedItems = [...formData.items];
-      const existingItem = { ...updatedItems[existingIndex] };
-      existingItem.quantity = (parseInt(existingItem.quantity) || 0) + 1;
-      
-      // Remove from current position
-      updatedItems.splice(existingIndex, 1);
-      // Remove the empty row we were typing in
-      updatedItems.splice(index, 1);
-      // Add updated item to top
-      updatedItems.unshift(existingItem);
-      
-      setFormData(prev => ({ ...prev, items: updatedItems }));
-      
-      // Update search states
-      const newSearches = itemSearches.filter((_, i) => i !== index);
-      newSearches.unshift(itemName);
-      setItemSearches(newSearches);
-      
-      const newDropdowns = showItemDropdowns.filter((_, i) => i !== index);
-      newDropdowns.unshift(false);
-      setShowItemDropdowns(newDropdowns);
-    } else {
-      // New item - update current row and move to top if not already at top
-      const updatedItems = [...formData.items];
-      updatedItems[index] = { ...updatedItems[index], item: itemName };
-      
-      if (index !== 0) {
-        // Move to top
-        const itemToMove = updatedItems.splice(index, 1)[0];
-        updatedItems.unshift(itemToMove);
-        
-        // Update search states accordingly
-        const searchToMove = itemSearches.splice(index, 1)[0];
-        const newSearches = [itemName, ...itemSearches];
-        setItemSearches(newSearches);
-        
-        const dropdownToMove = showItemDropdowns.splice(index, 1)[0];
-        const newDropdowns = [false, ...showItemDropdowns];
-        setShowItemDropdowns(newDropdowns);
-      } else {
-        // Already at top, just update search
-        const newSearches = [...itemSearches];
-        newSearches[index] = itemName;
-        setItemSearches(newSearches);
-        
-        const newDropdowns = [...showItemDropdowns];
-        newDropdowns[index] = false;
-        setShowItemDropdowns(newDropdowns);
-      }
-      
-      setFormData(prev => ({ ...prev, items: updatedItems }));
-    }
-  };
-
-  // Add new item row at the top
-  const addItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [{ item: '', quantity: 1 }, ...prev.items]
-    }));
-    setItemSearches(['', ...itemSearches]);
-    setShowItemDropdowns([false, ...showItemDropdowns]);
   };
 
   // Remove item row
   const removeItem = (index) => {
-    if (formData.items.length === 1) return;
-
     setFormData(prev => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }));
-    setItemSearches(itemSearches.filter((_, i) => i !== index));
-    setShowItemDropdowns(showItemDropdowns.filter((_, i) => i !== index));
   };
 
   // Enhanced signature canvas functions with touch support
@@ -394,12 +349,6 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
     }
   };
 
-  const availableItems = Object.keys(inventoryItems || {});
-  const filteredItems = (searchTerm) => 
-    availableItems.filter(item => 
-      item.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -486,91 +435,114 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
               </div>
             </div>
 
-            {/* Items */}
+            {/* Items - Search and Select */}
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Requested Items *
-                </label>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="flex items-center gap-2 px-3 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Requested Items *
+              </label>
+              
+              {/* Warehouse selection reminder */}
+              {!selectedWarehouse && (
+                <div className="bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-2 rounded-lg text-sm mb-3">
+                  Please select a warehouse first to enable item selection.
+                </div>
+              )}
 
-              <div className="space-y-3">
-                {formData.items.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={itemSearches[index] || item.item}
-                        onChange={(e) => {
-                          handleItemSearch(index, e.target.value);
-                          handleItemChange(index, 'item', e.target.value);
-                        }}
-                        onFocus={() => {
-                          const newDropdowns = [...showItemDropdowns];
-                          newDropdowns[index] = itemSearches[index]?.length > 0;
-                          setShowItemDropdowns(newDropdowns);
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Search for items..."
-                        required
-                      />
-                      
-                      {/* Item dropdown */}
-                      {showItemDropdowns[index] && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {filteredItems(itemSearches[index] || '').map((itemName) => (
-                            <button
-                              key={itemName}
-                              type="button"
-                              onClick={() => selectItem(index, itemName)}
-                              className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
-                            >
-                              <div className="font-medium">{itemName}</div>
-                              <div className="text-sm text-gray-500">
-                                ₦{Number(inventoryItems[itemName]?.price || 0).toLocaleString()}
-                              </div>
-                            </button>
-                          ))}
-                          {filteredItems(itemSearches[index] || '').length === 0 && (
-                            <div className="px-3 py-2 text-gray-500 text-sm">
-                              No items found
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="w-24">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              {/* Item Search Input with Autocomplete */}
+              <div className="relative mb-4">
+                <label className="block text-xs text-gray-600 mb-1">Type to Search and Select Item</label>
+                <input
+                  type="text"
+                  value={itemSearchInput}
+                  onChange={e => {
+                    setItemSearchInput(e.target.value);
+                    setShowItemSuggestions(true);
+                  }}
+                  onFocus={() => setShowItemSuggestions(true)}
+                  onBlur={() => {
+                    // Delay to allow click on suggestion
+                    setTimeout(() => setShowItemSuggestions(false), 200);
+                  }}
+                  disabled={!selectedWarehouse || loading}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder="Type item name to search..."
+                />
+                
+                {/* Autocomplete Suggestions Dropdown */}
+                {showItemSuggestions && suggestedItems.length > 0 && itemSearchInput.trim() && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {suggestedItems.slice(0, 10).map((name, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleItemSelect(name)}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-b-0"
                       >
-                        <Minus className="w-4 h-4" />
-                      </button>
+                        <div className="font-medium">{name}</div>
+                        <div className="text-xs text-gray-500">
+                          ₦{Number(inventoryItems[name]?.price || 0).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                    {suggestedItems.length > 10 && (
+                      <div className="px-3 py-2 text-xs text-gray-500 italic">
+                        +{suggestedItems.length - 10} more items... Keep typing to narrow down
+                      </div>
                     )}
                   </div>
-                ))}
+                )}
+                
+                <div className="text-xs text-gray-500 mt-1">
+                  Type to search, then click to add. Items are added at the top. Selecting an existing item increases its quantity. Selected items won't appear in the dropdown.
+                </div>
               </div>
+
+              {/* Selected Items List */}
+              {formData.items.length > 0 && (
+                <>
+                  <div className="bg-gray-50 rounded-lg p-3 mb-2">
+                    <div className="grid grid-cols-12 gap-2 items-center text-sm font-medium text-gray-700">
+                      <div className="col-span-7">Item Name</div>
+                      <div className="col-span-3">Quantity</div>
+                      <div className="col-span-2">Actions</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {formData.items.map((item, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 bg-white border border-gray-200 rounded-lg">
+                        <div className="col-span-7">
+                          <div className="px-3 py-2 bg-gray-50 rounded text-sm font-medium">{item.item || '(empty)'}</div>
+                        </div>
+                        <div className="col-span-3">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="w-full px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              
+              {formData.items.length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  No items selected yet. Use the search box above to add items.
+                </div>
+              )}
             </div>
 
             {/* Reason */}

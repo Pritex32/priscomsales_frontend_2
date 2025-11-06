@@ -186,7 +186,7 @@ const Sales = () => {
   const { hasPermission: canOverrideInvoice } = usePermission('sales.invoice_override.access');
 
 
-  const loadList = async () => {
+  const loadList = React.useCallback(async () => {
     setLoading(true); setError('');
     try {
       console.log('Loading sales data...');
@@ -204,7 +204,7 @@ const Sales = () => {
       const errorMsg = e.response?.data?.detail || e.message;
       setError('Failed to load sales: ' + errorMsg);
     } finally { setLoading(false); }
-  };
+  }, []);
 
   useEffect(() => { if (tab === 'List') loadList(); }, [tab]);
 

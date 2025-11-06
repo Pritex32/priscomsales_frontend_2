@@ -3302,8 +3302,14 @@ const Sales = () => {
                                 
                                 const response = await api.post('/sales/payments', paymentPayload);
                                 
+                                
                                 const newStatus = response.data?.new_status || 'unknown';
+                                const itemsUpdated = response.data?.items_updated || 1;
+                                const totalPaid = response.data?.total_paid || 0;
+                                const grandTotal = response.data?.grand_total || totalAmount;
                                 let successMsg = `✅ Payment updated! New status: ${newStatus.toUpperCase()}`;
+                                successMsg += `\n💰 Total Paid: ₦${totalPaid.toLocaleString()}`;
+                                successMsg += `\n📊 Outstanding: ₦${(grandTotal - totalPaid).toLocaleString()}`;
                                 
                                 // Add info about grouped items
                                 if (tx.item_count > 1) {

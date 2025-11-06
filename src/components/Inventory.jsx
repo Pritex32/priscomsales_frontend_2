@@ -76,7 +76,7 @@ const Inventory = () => {
   const [adjustMsg, setAdjustMsg] = useState('');
   const [filteredItemsMap, setFilteredItemsMap] = useState({});
 
-  const refreshHomeData = async () => {
+  const refreshHomeData = React.useCallback(async () => {
     setLoading(true); setError('');
     try {
       const [lowRes, itemsRes, logsRes, warehouseRes] = await Promise.all([
@@ -94,7 +94,7 @@ const Inventory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
 
   const fetchItemsByWarehouse = async (warehouse) => {
     try {

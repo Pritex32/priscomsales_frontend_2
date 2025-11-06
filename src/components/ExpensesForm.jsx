@@ -94,7 +94,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
 
   // Handle file upload
   const handleFileUpload = async (file) => {
-    if (!file) return;
+    if (!file) return null;
 
     // Clear previous errors and success messages
     setError('');
@@ -104,7 +104,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
       setError('File size must be less than 10MB');
-      return;
+      return null;
     }
 
     // Check if file with similar name already exists
@@ -114,7 +114,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
         `A file with similar name may already exist. Do you want to upload this file anyway?`
       );
       if (!confirmUpload) {
-        return;
+        return null;
       }
     }
 
@@ -125,8 +125,10 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
     try {
       setLoading(true);
       const response = await expensesApi.uploadInvoice(formDataObj);
-      setInvoiceFileUrl(response.data.invoice_file_url);
+      const uploadedUrl = response.data.invoice_file_url;
+      setInvoiceFileUrl(uploadedUrl);
       setSuccess('Invoice file uploaded successfully');
+      return uploadedUrl;
     } catch (err) {
       console.error('Upload error:', err);
       let errorMessage = 'Failed to upload invoice file';
@@ -150,11 +152,11 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
       }
       
       setError(errorMessage);
+      return null;
     } finally {
       setLoading(false);
     }
   };
-
   // Camera functions
   const startCamera = async () => {
     try {
@@ -194,56 +196,34 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
     
     canvas.toBlob(async (blob) => {
       if (blob) {
+        const file = new File([blob], `expense_camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setInvoiceFile(file);
+        
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = (e) => setCapturedImage(e.target.result);
+        reader.readAsDataURL(blob);
+        
+        // Upload the file
+        setLoading(true);
         try {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              setLoading(true);
-              const base64Data = reader.result;
-              const response = await expensesApi.uploadInvoiceBase64({
-                data_base64: base64Data,
-                filename: `expense_camera_${Date.now()}.jpg`,
-                content_type: 'image/jpeg'
-              });
-              
-              setInvoiceFileUrl(response.data.invoice_file_url);
-              setCapturedImage(base64Data);
-              stopCamera();
-              setSuccess('Invoice captured and uploaded successfully');
-            } catch (err) {
-              console.error('Camera upload error:', err);
-              let errorMessage = 'Failed to upload captured image';
-              
-              if (err.response?.data?.detail) {
-                if (err.response.data.detail === 'Not authenticated') {
-                  errorMessage = 'Authentication required. Please login again.';
-                  setTimeout(() => {
-                    localStorage.removeItem('login_token');
-                    localStorage.removeItem('role');
-                    window.location.href = '/login';
-                  }, 2000);
-                } else {
-                  errorMessage = err.response.data.detail;
-                }
-              } else if (err.response?.data?.message) {
-                errorMessage = err.response.data.message;
-              } else if (err.message) {
-                errorMessage = `Camera upload failed: ${err.message}`;
-              }
-              
-              setError(errorMessage);
-            } finally {
-              setLoading(false);
-            }
-          };
-          reader.readAsDataURL(blob);
+          const uploadedUrl = await handleFileUpload(file);
+          if (uploadedUrl) {
+            setInvoiceFileUrl(uploadedUrl);
+            setSuccess('Invoice captured and uploaded successfully!');
+          }
         } catch (err) {
-          setError('Failed to process captured image');
+          console.error('Camera upload error:', err);
+          setError('Failed to upload captured image: ' + (err.message || 'Unknown error'));
+        } finally {
+          setLoading(false);
         }
+        
+        // Stop camera
+        stopCamera();
       }
     }, 'image/jpeg', 0.9);
   };
-
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -579,58 +559,61 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
                     <button
                       type="button"
                       onClick={startCamera}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      disabled={loading}
+                      className="w-full px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       <Camera className="w-4 h-4" />
-                      Start Camera
+                      <span>Use Camera to Capture Invoice</span>
                     </button>
                   )}
 
                   {cameraActive && (
-                    <div className="space-y-4">
-                      <div className="relative">
+                    <div className="space-y-3">
+                      <div className="relative bg-black rounded-lg overflow-hidden">
                         <video
                           ref={videoRef}
                           autoPlay
                           playsInline
-                          className="w-full max-w-md rounded-lg border"
-                          style={{ maxHeight: '300px' }}
+                          className="w-full h-auto"
+                          style={{ maxHeight: '400px' }}
                         />
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={capturePhoto}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                          disabled={loading}
+                          className="flex-1 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                         >
-                          <Camera className="w-4 h-4" />
-                          Capture
+                          📸 Capture Photo
                         </button>
                         <button
                           type="button"
                           onClick={stopCamera}
-                          className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                          className="flex-1 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                         >
-                          <X className="w-4 h-4" />
-                          Cancel
+                          ✕ Cancel
                         </button>
                       </div>
                     </div>
                   )}
 
                   {capturedImage && (
-                    <div className="space-y-2">
-                      <p className="text-sm text-green-600 font-medium">✓ Image captured successfully</p>
-                      <img src={capturedImage} alt="Captured invoice" className="max-w-xs rounded-lg border" />
+                    <div className="space-y-3">
+                      <div className="bg-green-50 border border-green-200 rounded p-3">
+                        <p className="text-sm text-green-600 font-medium">✓ Image captured successfully</p>
+                      </div>
+                      <img src={capturedImage} alt="Captured invoice" className="max-w-full h-auto rounded-lg border" style={{ maxHeight: '300px' }} />
                       <button
                         type="button"
                         onClick={() => {
                           setCapturedImage(null);
                           setInvoiceFileUrl('');
+                          setInvoiceFile(null);
                         }}
-                        className="text-sm text-gray-600 hover:text-gray-800"
+                        className="text-sm text-red-600 hover:text-red-800 font-medium"
                       >
-                        Retake Photo
+                        ✕ Retake Photo
                       </button>
                     </div>
                   )}
@@ -656,7 +639,6 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
                 </div>
               )}
             </div>
-
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

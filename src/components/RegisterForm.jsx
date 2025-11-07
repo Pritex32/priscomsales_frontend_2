@@ -37,6 +37,8 @@ const RegisterForm = () => {
       return;
     }
 
+ 
+
     try {
       const response = await fetch(`${REACT_APP_API_URL}/auth/register`, {
         method: 'POST',
@@ -52,10 +54,12 @@ const RegisterForm = () => {
           accepted_terms: formData.acceptedTerms,
         }),
       });
+      
 
       if (response.ok) {
         const data = await response.json();
         setSuccess(data.msg || 'Registration successful! Please check your email to verify your account.');
+        
         // Clear form
         setFormData({
           username: '',
@@ -64,10 +68,11 @@ const RegisterForm = () => {
           confirmPassword: '',
           acceptedTerms: false,
         });
-        // Redirect to login after 3 seconds
+        // Redirect to verification page with email after 2 seconds
         setTimeout(() => {
-          navigate('/login');
-        }, 3000);
+          navigate(`/verify-email?email=${encodeURIComponent(userEmail)}`);
+        }, 2000);
+        
       } else {
         const errorData = await response.json();
         // Handle FastAPI validation errors

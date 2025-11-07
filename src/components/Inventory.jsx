@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { usePermission } from '../hooks/usePermission';
 const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
+import { toast } from 'react-toastify';
 const formatDate = (d) => {
   if (!d) return '';
   if (typeof d === 'string') return d;
@@ -356,6 +357,7 @@ const Inventory = () => {
       
       const successMessage = `Inventory updated successfully! ${adjustAction === 'supply' ? 'Supplied Quantity' : adjustAction === 'stockout' ? 'Stock Out' : 'Return Quantity'} changed to ${adjustQty} for ${adjustDate}`;
       setAdjustMsg(successMessage);
+      toast.success(successMessage);
       setLoading(false);
       
       // Wait a moment to show the success message in modal

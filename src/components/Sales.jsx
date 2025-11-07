@@ -1453,11 +1453,16 @@ const Sales = () => {
 
   // Delete sale
   const deleteSale = async (saleId) => {
+    console.log('Delete button clicked for sale:', saleId);
+    console.log('canDeleteSales permission:', canDeleteSales);
     if (!canDeleteSales) {
       setError('You do not have permission to delete sales.');
       return;
     }
-    
+    if (!saleId) {
+      setError('Invalid sale ID. Cannot delete.');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete Sale #${saleId}? This will revert inventory changes. This action cannot be undone.`)) {
       return;
     }
@@ -2159,7 +2164,7 @@ const Sales = () => {
                   }
                 }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  applyVAT ? 'bg-blue-600' : 'bg-gray-300'
+                  applyVAT ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
               >
                 <span

@@ -24,12 +24,19 @@ const ResendVerification = () => {
     setMessage('');
 
     try {
+      // Use axios directly without interceptors to avoid auth token requirement
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://priscomsales.online/api';
-      const response = await api.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`);
+      const response = await axios.post(`${API_BASE_URL}/auth/resend-verification`, {
+        email: email.trim()
+      });
       
       setStatus('success');
-      setMessage(response.data?.msg || 'Verification email sent successfully!');
-      setEmail('');
+      setMessage(response.data?.msg || 'Verification code sent successfully!');
+      
+      // Redirect to verification page after 2 seconds
+      setTimeout(() => {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+      }, 2000);
     } catch (error) {
       setStatus('error');
       setMessage(
@@ -62,10 +69,10 @@ const ResendVerification = () => {
 
         {/* Title */}
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-          Resend Verification Email
+          Resend Verification Code
         </h1>
         <p className="text-center text-gray-600 mb-6">
-          Enter your email address and we'll send you a new verification link
+          Enter your email address and we'll send you a new 6-digit verification code
         </p>
 
         {/* Status Messages */}
@@ -120,7 +127,7 @@ const ResendVerification = () => {
             ) : (
               <>
                 <Mail className="w-4 h-4" />
-                Send Verification Email
+                Send Verification Code
               </>
             )}
           </button>
@@ -133,7 +140,7 @@ const ResendVerification = () => {
           </p>
           <p className="text-sm text-gray-600 text-center mt-2">
             Need help?{' '}
-            <a href="mailto:priscomac@priscomsales.online" className="text-green-600 hover:text-green-700 font-medium">
+            <a href="mailto:support@priscomsales.online" className="text-green-600 hover:text-green-700 font-medium">
               Contact Support
             </a>
           </p>

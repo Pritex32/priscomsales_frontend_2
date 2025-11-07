@@ -15,6 +15,7 @@ const VerifyEmail = () => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
+
   const handleVerify = async (e) => {
     e.preventDefault();
     
@@ -263,7 +264,7 @@ const VerifyEmail = () => {
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
           <p className="text-sm text-gray-600">
             Need help?{' '}
-            <a href="mailto:priscomac@gmail.com" className="text-teal-600 hover:text-teal-700 font-medium">
+            <a href="mailto:support@priscomsales.online" className="text-teal-600 hover:text-teal-700 font-medium">
               Contact Support
             </a>
           </p>

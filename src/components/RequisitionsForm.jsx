@@ -13,6 +13,7 @@ import {
   Upload
 } from 'lucide-react';
 import { requisitionsApi } from '../services/requisitionsApi';
+import { toast } from 'react-toastify';
 
 const RequisitionsForm = ({ requisition, onBack, onSave }) => {
   const [loading, setLoading] = useState(false);
@@ -329,14 +330,22 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
         const emailConfigured = response.data.officer_email_configured;
         
         if (emailSent) {
-          setSuccess(`${successMsg}. Email notification sent to inventory officer.`);
+          const fullMsg = setSuccess(`${successMsg}. Email notification sent to inventory officer.`);
+          setSuccess(fullMsg);
+          toast.success(successMsg);
+          toast.info('Email notification sent to inventory officer');
         } else if (!emailConfigured) {
-          setSuccess(`${successMsg}. Warning: No inventory officer email configured. Please set it up in Settings.`);
+          const fullMsg =setSuccess(`${successMsg}. Warning: No inventory officer email configured. Please set it up in Settings.`);
+          setSuccess(fullMsg);
+          toast.success(successMsg);
+          toast.warning('No inventory officer email configured');
         } else {
           setSuccess(successMsg);
+          toast.success(successMsg);
         }
       } else {
         setSuccess(successMsg);
+        toast.success(successMsg);
       }
       
       if (onSave) {

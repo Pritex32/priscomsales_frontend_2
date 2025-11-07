@@ -664,8 +664,9 @@ const Sales = () => {
     }
     
     // Validate invoice upload - compulsory unless MD overrides
-    if (!invoiceFileUrl && !invoiceOverride) {
-      setError('Invoice upload is compulsory. Please upload an invoice before saving the sale, or enable override if you are an MD.');
+    // Validate invoice upload - compulsory for paid and partial sales, optional for credit sales
+    if (paymentStatus !== 'credit' && !invoiceFileUrl && !invoiceOverride) {
+      setError('Invoice upload is compulsory. Please upload an invoice before saving the sale, or enable override if you have permission.');
       return;
     }
     
@@ -1981,11 +1982,12 @@ const Sales = () => {
             </div>
           </div>
 
-          {/* Invoice Upload Section */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-800">Invoice Upload</h3>
-              {canOverrideInvoice && (
+          {/* Invoice Upload Section - Hidden for credit sales */}
+          {paymentStatus !== 'credit' && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">Invoice Upload</h3>
+                {canOverrideInvoice && (
                 <button
                   type="button"
                   onClick={() => {
@@ -2106,11 +2108,12 @@ const Sales = () => {
                     className="text-blue-600 hover:text-blue-700 underline"
                   >
                     View
-                  </a>
-                </div>
-              )}
+                 </a>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Grand Total Calculation Section */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

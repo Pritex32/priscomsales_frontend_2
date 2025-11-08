@@ -186,6 +186,19 @@ const Sales = () => {
   const { hasPermission: canConnectPOS } = usePermission('sales.connect_pos.access');
   const { hasPermission: canOverrideInvoice } = usePermission('sales.invoice_override.access');
 
+  // Debug permissions on mount
+  useEffect(() => {
+    const role = localStorage.getItem('role');
+    console.log('=== SALES PERMISSIONS DEBUG ===');
+    console.log('User role:', role);
+    console.log('canDeleteSales:', canDeleteSales);
+    console.log('canBackdateSales:', canBackdateSales);
+    console.log('canDeleteProforma:', canDeleteProforma);
+    console.log('canConnectPOS:', canConnectPOS);
+    console.log('canOverrideInvoice:', canOverrideInvoice);
+    console.log('===============================');
+  }, [canDeleteSales, canBackdateSales, canDeleteProforma, canConnectPOS, canOverrideInvoice]);
+
 
   const loadList = React.useCallback(async () => {
     setLoading(true); setError('');
@@ -457,7 +470,7 @@ const Sales = () => {
       setSaleItems([{
         item_name: trimmed,
         quantity: 1,
-        unit_price: inv.price || 0,
+        unit_price: Number(inv.price) || 0,
         item_id: inv.item_id,
       }, ...saleItems]);
     }
@@ -505,7 +518,7 @@ const Sales = () => {
     const newItems = [...saleItems];
     newItems[idx][field] = value;
     if (field === 'item_name' && inventoryItems[value]) {
-      newItems[idx].unit_price = inventoryItems[value].price;
+      newItems[idx].unit_price = Number(inventoryItems[value].price) || 0;
       newItems[idx].item_id = inventoryItems[value].item_id;
     }
     setSaleItems(newItems);
@@ -664,7 +677,6 @@ const Sales = () => {
       return;
     }
     
-    // Validate invoice upload - compulsory unless MD overrides
     // Validate invoice upload - compulsory for paid and partial sales, optional for credit sales
     if (paymentStatus !== 'credit' && !invoiceFileUrl && !invoiceOverride) {
       setError('Invoice upload is compulsory. Please upload an invoice before saving the sale, or enable override if you have permission.');
@@ -826,8 +838,7 @@ const Sales = () => {
       const response = await api.post('/sales/batch', payload);
       console.log('Sale response:', response.data);
       
-      const successMessage = `Sale recorded successfully! Final total: ₦${calculateGrandTotal().
-      toLocaleString()}`;
+      const successMessage = `Sale recorded successfully! Final total: ₦${calculateGrandTotal().toLocaleString()}`;
       setSuccess(successMessage);
       toast.success(successMessage);
       
@@ -901,7 +912,7 @@ const Sales = () => {
       setProformaItems([{
         item_name: trimmed,
         quantity: 1,
-        unit_price: inv.price || 0,
+        unit_price: Number(inv.price) || 0,
         item_id: inv.item_id,
       }, ...proformaItems]);
     }
@@ -913,7 +924,7 @@ const Sales = () => {
     const newItems = [...proformaItems];
     newItems[idx][field] = value;
     if (field === 'item_name' && inventoryItems[value]) {
-      newItems[idx].unit_price = inventoryItems[value].price;
+      newItems[idx].unit_price = Number(inventoryItems[value].price) || 0;
       newItems[idx].item_id = inventoryItems[value].item_id;
     }
     setProformaItems(newItems);
@@ -997,7 +1008,7 @@ const Sales = () => {
       };
       await api.post('/sales/proforma', payload);
       const successMessage = 'Proforma invoice created successfully!';
-      setSuccess(successMessage);    
+      setSuccess(successMessage);
       toast.success(successMessage);
       // Reset form
       setProformaCustomer('');
@@ -1060,8 +1071,8 @@ const Sales = () => {
       if (conversionData.inventory_updates && conversionData.inventory_updates.length > 0) {
         successMsg += `\n📦 Inventory Updated:\n`;
         conversionData.inventory_updates.forEach((update, idx) => {
-          const action = update.action === 'created' ? '➕ Created' : 
-                         update.action === 'updated' ? '♻️ Updated' : 
+          const action = update.action === 'created' ? '➕ Created' :
+                         update.action === 'updated' ? '♻️ Updated' :
                          update.action === 'skipped' ? '⏭️ Skipped' :
                          '⚠️ ' + update.action;
           successMsg += `  ${idx + 1}. ${update.item_name}\n`;
@@ -1462,20 +1473,24 @@ const Sales = () => {
   const deleteSale = async (saleId) => {
     console.log('Delete button clicked for sale:', saleId);
     console.log('canDeleteSales permission:', canDeleteSales);
+    
     if (!canDeleteSales) {
       setError('You do not have permission to delete sales.');
       return;
     }
+    
     if (!saleId) {
       setError('Invalid sale ID. Cannot delete.');
       return;
     }
+    
     if (!window.confirm(`Are you sure you want to delete Sale #${saleId}? This will revert inventory changes. This action cannot be undone.`)) {
       return;
     }
     
     setLoading(true); setError(''); setSuccess('');
     try {
+      console.log('Sending delete request for sale:', saleId);
       await api.delete(`/sales/${saleId}`);
       setSuccess(`Sale #${saleId} deleted successfully!`);
       // Refresh the list
@@ -1485,6 +1500,7 @@ const Sales = () => {
         applyFilter();
       }
     } catch (e) {
+      console.error('Delete sale error:', e);
       setError('Failed to delete sale: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
@@ -1856,8 +1872,9 @@ const Sales = () => {
           </div>
 
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Items *</label>
-            {/* Total Items Counter */}
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">Items *</label>
+              {/* Total Items Counter */}
               {saleItems.length > 0 && (
                 <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
                   <span className="text-green-700 font-bold text-lg">
@@ -1897,26 +1914,27 @@ const Sales = () => {
               </button>
             </div>
 
-            {/* Item selector with autocomplete (auto-add, no duplicates) */}
+            {/* Item selector with autocomplete and bulk selection */}
             <div className="relative">
               <label className="block text-xs text-gray-600 mb-1">Or Type to Search and Select Item</label>
-              <input
-                type="text"
-                value={saleItemSearchInput}
-                onChange={e => {
-                  setSaleItemSearchInput(e.target.value);
-                  setShowSaleItemSuggestions(true);
-                }}
-                onFocus={() => setShowSaleItemSuggestions(true)}
-                onBlur={() => {
-                  // Delay to allow click on suggestion
-                  setTimeout(() => setShowSaleItemSuggestions(false), 200);
-                }}
-                disabled={!selectedWarehouse || loading}
-                className="border rounded px-3 py-2 w-full text-sm"
-                placeholder="Type item name to search..."
-              />
-              {/* Bulk Select All Button */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={saleItemSearchInput}
+                  onChange={e => {
+                    setSaleItemSearchInput(e.target.value);
+                    setShowSaleItemSuggestions(true);
+                  }}
+                  onFocus={() => setShowSaleItemSuggestions(true)}
+                  onBlur={() => {
+                    // Delay to allow click on suggestion
+                    setTimeout(() => setShowSaleItemSuggestions(false), 200);
+                  }}
+                  disabled={!selectedWarehouse || loading}
+                  className="border rounded px-3 py-2 flex-1 text-sm"
+                  placeholder="Type item name to search..."
+                />
+                {/* Bulk Select All Button */}
                 {saleItemSearchInput.trim() && saleSuggestedItems.length > 0 && (
                   <button
                     type="button"
@@ -1965,7 +1983,7 @@ const Sales = () => {
               )}
               
               <div className="text-xs text-gray-500 mt-1">
-                Type to search, then click to add. Items are added at the top. Selecting an existing item increases its quantity.
+                Type to search, then click to add. Use "Select All" to add all matching items at once. Items are added at the top. Selecting an existing item increases its quantity.
               </div>
             </div>
             
@@ -2032,127 +2050,127 @@ const Sales = () => {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-800">Invoice Upload</h3>
                 {canOverrideInvoice && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newValue = !invoiceOverride;
-                    console.log('Invoice override toggle clicked:', newValue);
-                    setInvoiceOverride(newValue);
-                  }}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    invoiceOverride 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {invoiceOverride ? '✓ Override Enabled' : 'Enable Override'}
-                </button>
-              )}
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Invoice {invoiceOverride ? '(Optional - Override Enabled)' : '(Required)'}
-                  {!invoiceOverride && <span className="text-red-600 ml-1">*</span>}
-                </label>
-                
-                {/* File Upload Input */}
-                <div className="mb-3">
-                  <input 
-                    type="file" 
-                    accept=".pdf,.jpg,.jpeg,.png,.gif" 
-                    onChange={handleInvoiceFileChange}
-                    className="border rounded px-3 py-2 w-full text-sm"
-                    disabled={loading || saleInvoiceUsingCamera}
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    Supported formats: PDF, JPG, PNG, GIF. Maximum size: 10MB
-                  </div>
-                </div>
-                
-                {/* Camera Button */}
-                {!saleInvoiceUsingCamera && !invoiceFile && (
                   <button
                     type="button"
-                    onClick={startSaleInvoiceCamera}
-                    disabled={loading}
-                    className="w-full px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    onClick={() => {
+                      const newValue = !invoiceOverride;
+                      console.log('Invoice override toggle clicked:', newValue);
+                      setInvoiceOverride(newValue);
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      invoiceOverride
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
                   >
-                    <span>📷</span>
-                    <span>Use Camera to Capture Invoice</span>
+                    {invoiceOverride ? '✓ Override Enabled' : 'Enable Override'}
                   </button>
-                )}
-                
-                {/* Camera View */}
-                {saleInvoiceUsingCamera && (
-                  <div className="space-y-3">
-                    <div className="relative bg-black rounded-lg overflow-hidden">
-                      <video 
-                        id="sale-invoice-camera-video" 
-                        autoPlay 
-                        playsInline
-                        className="w-full h-auto"
-                        style={{ maxHeight: '400px' }}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={captureSaleInvoicePhoto}
-                        className="flex-1 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
-                      >
-                        📸 Capture Photo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={stopSaleInvoiceCamera}
-                        className="flex-1 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-                      >
-                        ✕ Cancel
-                      </button>
-                    </div>
-                  </div>
                 )}
               </div>
-              
-              {/* Preview */}
-              {invoicePreview && (
-                <div className="mt-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                  <img src={invoicePreview} alt="Invoice preview" className="max-w-full h-auto rounded border" style={{ maxHeight: '300px' }} />
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Invoice {invoiceOverride ? '(Optional - Override Enabled)' : '(Required)'}
+                    {!invoiceOverride && <span className="text-red-600 ml-1">*</span>}
+                  </label>
+                  
+                  {/* File Upload Input */}
+                  <div className="mb-3">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif"
+                      onChange={handleInvoiceFileChange}
+                      className="border rounded px-3 py-2 w-full text-sm"
+                      disabled={loading || saleInvoiceUsingCamera}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      Supported formats: PDF, JPG, PNG, GIF. Maximum size: 10MB
+                    </div>
+                  </div>
+                  
+                  {/* Camera Button */}
+                  {!saleInvoiceUsingCamera && !invoiceFile && (
+                    <button
+                      type="button"
+                      onClick={startSaleInvoiceCamera}
+                      disabled={loading}
+                      className="w-full px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <span>📷</span>
+                      <span>Use Camera to Capture Invoice</span>
+                    </button>
+                  )}
+                  
+                  {/* Camera View */}
+                  {saleInvoiceUsingCamera && (
+                    <div className="space-y-3">
+                      <div className="relative bg-black rounded-lg overflow-hidden">
+                        <video
+                          id="sale-invoice-camera-video"
+                          autoPlay
+                          playsInline
+                          className="w-full h-auto"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={captureSaleInvoicePhoto}
+                          className="flex-1 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                        >
+                          📸 Capture Photo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopSaleInvoiceCamera}
+                          className="flex-1 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                        >
+                          ✕ Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              
-              {invoiceFile && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-green-600">✓</span>
-                  <span>Selected: {invoiceFile.name}</span>
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setInvoiceFile(null);
-                      setInvoiceFileUrl('');
-                      setInvoicePreview(null);
-                    }}
-                    className="text-red-600 hover:text-red-700 font-bold"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-              
-              {invoiceFileUrl && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <span>✓</span>
-                  <span>Invoice uploaded successfully!</span>
-                  <a 
-                    href={invoiceFileUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 underline"
-                  >
-                    View
-                 </a>
+                
+                {/* Preview */}
+                {invoicePreview && (
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                    <img src={invoicePreview} alt="Invoice preview" className="max-w-full h-auto rounded border" style={{ maxHeight: '300px' }} />
+                  </div>
+                )}
+                
+                {invoiceFile && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-green-600">✓</span>
+                    <span>Selected: {invoiceFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInvoiceFile(null);
+                        setInvoiceFileUrl('');
+                        setInvoicePreview(null);
+                      }}
+                      className="text-red-600 hover:text-red-700 font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                
+                {invoiceFileUrl && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <span>✓</span>
+                    <span>Invoice uploaded successfully!</span>
+                    <a
+                      href={invoiceFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      View
+                    </a>
                   </div>
                 )}
               </div>
@@ -2188,7 +2206,7 @@ const Sales = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* VAT Toggle - Simple button-based toggle */}
+            {/* VAT Toggle - Responsive toggle button matching Proforma style */}
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -2278,15 +2296,15 @@ const Sales = () => {
           </div>
 
           <div className="flex gap-3 flex-wrap">
-            <button 
-              onClick={submitSale} 
-              disabled={loading} 
+            <button
+              onClick={submitSale}
+              disabled={loading}
               className="px-6 py-3 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
               title="Save this sale transaction to the database"
             >
               {loading ? 'Submitting...' : 'Submit Sale'}
             </button>
-            <button 
+            <button
               onClick={async () => {
                 // Validate that items are selected
                 if (saleItems.length === 0) {
@@ -2313,8 +2331,7 @@ const Sales = () => {
                 }
                 
                 setLoading(true);
-                setError('');
-                setSuccess('');
+                
                 try {
                   // Get current user info
                   const currentUser = await getCurrentUserInfo();
@@ -2337,6 +2354,7 @@ const Sales = () => {
                   
                   // Create requisition using batch endpoint
                   const response = await api.post('/requisitions/batch', requisitionPayload);
+                  
                   const totalQuantity = saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
                   
                   // Show success toast with details
@@ -2349,26 +2367,15 @@ const Sales = () => {
                     const emailSent = response.data.email_sent;
                     const emailConfigured = response.data.officer_email_configured;
                     
-                    let fullMsg = `✅ ${successMsg}\n`;
-                    fullMsg += `📦 ${saleItems.length} item(s) moved to requisition\n`;
-                    fullMsg += `📊 Total quantity: ${saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}\n`;
-                    
                     if (emailSent) {
-                      fullMsg += `📧 Email notification sent to inventory officer`;
-                      toast.success('Requisition created successfully!');
-                      toast.info('Email notification sent to inventory officer');
+                      toast.info('📧 Email notification sent to inventory officer', {
+                        autoClose: 4000
+                      });
                     } else if (!emailConfigured) {
-                      fullMsg += `⚠️ Warning: No inventory officer email configured`;
-                      toast.success('Requisition created successfully!');
-                      toast.warning('No inventory officer email configured');
-                    } else {
-                      toast.success('Requisition created successfully!');
+                      toast.warning('⚠️ No inventory officer email configured. Please set it up in Settings.', {
+                        autoClose: 5000
+                      });
                     }
-                    
-                    setSuccess(fullMsg);
-                  } else {
-                    setSuccess(`✅ Requisition created with ${saleItems.length} item(s)`);
-                    toast.success('Requisition created successfully!');
                   }
                   
                   // Note: We do NOT clear the sale items - user must click Submit Sale to clear them
@@ -2376,8 +2383,9 @@ const Sales = () => {
                 } catch (e) {
                   console.error('Failed to create requisition:', e);
                   const errorMsg = e.response?.data?.detail || e.message;
-                  setError('Failed to create requisition: ' + errorMsg);
-                  toast.error('Failed to create requisition');
+                  toast.error(`❌ Failed to create requisition: ${errorMsg}`, {
+                    autoClose: 6000
+                  });
                 } finally {
                   setLoading(false);
                 }
@@ -2389,11 +2397,11 @@ const Sales = () => {
               {loading ? 'Processing...' : 'Move to Requisition'}
             </button>
             <button
-              onClick={() => { 
-                setShowReceiptModal(true); 
+              onClick={() => {
+                setShowReceiptModal(true);
                 loadReceiptCustomers();
-                loadReceiptSales(); 
-              }} 
+                loadReceiptSales();
+              }}
               className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700"
               title="Generate PDF or thermal receipt for a sale"
             >
@@ -2615,8 +2623,9 @@ const Sales = () => {
             )}
 
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">Items *</label>
-              {/* Total Items Counter for Proforma */}
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">Items *</label>
+                {/* Total Items Counter for Proforma */}
                 {proformaItems.length > 0 && (
                   <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
                     <span className="text-green-700 font-bold text-lg">
@@ -2626,26 +2635,27 @@ const Sales = () => {
                 )}
               </div>
 
-              {/* Item selector with autocomplete (auto-add, no duplicates) */}
+              {/* Item selector with autocomplete and bulk selection */}
               <div className="relative">
                 <label className="block text-xs text-gray-600 mb-1">Type to Search and Select Item</label>
-                <input
-                  type="text"
-                  value={proformaItemSearchInput}
-                  onChange={e => {
-                    setProformaItemSearchInput(e.target.value);
-                    setShowProformaItemSuggestions(true);
-                  }}
-                  onFocus={() => setShowProformaItemSuggestions(true)}
-                  onBlur={() => {
-                    // Delay to allow click on suggestion
-                    setTimeout(() => setShowProformaItemSuggestions(false), 200);
-                  }}
-                  disabled={!selectedWarehouse || loading}
-                  className="border rounded px-3 py-2 w-full text-sm"
-                  placeholder="Type item name to search..."
-                />
-                {/* Bulk Select All Button for Proforma */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={proformaItemSearchInput}
+                    onChange={e => {
+                      setProformaItemSearchInput(e.target.value);
+                      setShowProformaItemSuggestions(true);
+                    }}
+                    onFocus={() => setShowProformaItemSuggestions(true)}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowProformaItemSuggestions(false), 200);
+                    }}
+                    disabled={!selectedWarehouse || loading}
+                    className="border rounded px-3 py-2 flex-1 text-sm"
+                    placeholder="Type item name to search..."
+                  />
+                  {/* Bulk Select All Button for Proforma */}
                   {proformaItemSearchInput.trim() && proformaSuggestedItems.length > 0 && (
                     <button
                       type="button"
@@ -2693,7 +2703,7 @@ const Sales = () => {
                 )}
                 
                 <div className="text-xs text-gray-500 mt-1">
-                  Type to search, then click to add. Items are added at the top. Selecting an existing item increases its quantity.
+                  Type to search, then click to add. Use "Select All" to add all matching items at once. Items are added at the top. Selecting an existing item increases its quantity.
                 </div>
               </div>
 
@@ -3483,24 +3493,24 @@ const Sales = () => {
                                 
                                 const response = await api.post('/sales/payments', paymentPayload);
                                 
-                                
                                 const newStatus = response.data?.new_status || 'unknown';
                                 const itemsUpdated = response.data?.items_updated || 1;
                                 const totalPaid = response.data?.total_paid || 0;
                                 const grandTotal = response.data?.grand_total || totalAmount;
+                                
                                 let successMsg = `✅ Payment updated! New status: ${newStatus.toUpperCase()}`;
                                 successMsg += `\n💰 Total Paid: ₦${totalPaid.toLocaleString()}`;
                                 successMsg += `\n📊 Outstanding: ₦${(grandTotal - totalPaid).toLocaleString()}`;
                                 
                                 // Add info about grouped items
-                                if (tx.item_count > 1) {
-                                  successMsg += `\n📦 All ${tx.item_count} items in this transaction have been updated.`;
+                                if (itemsUpdated > 1) {
+                                  successMsg += `\n📦 All ${itemsUpdated} items in this transaction have been updated.`;
                                 }
                                 
                                 setSuccess(successMsg);
                                 toast.success('Payment updated successfully!');
                                 
-                                // Refresh pending list
+                                // Refresh pending list to show updated data
                                 await loadPending();
                               } catch (e) {
                                 console.error('Payment update failed:', e);

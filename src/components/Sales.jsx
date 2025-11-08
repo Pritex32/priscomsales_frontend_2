@@ -1857,6 +1857,15 @@ const Sales = () => {
 
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">Items *</label>
+            {/* Total Items Counter */}
+              {saleItems.length > 0 && (
+                <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
+                  <span className="text-green-700 font-bold text-lg">
+                    Total Items: {saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Warehouse selection reminder */}
             {!selectedWarehouse && (
@@ -1907,6 +1916,29 @@ const Sales = () => {
                 className="border rounded px-3 py-2 w-full text-sm"
                 placeholder="Type item name to search..."
               />
+              {/* Bulk Select All Button */}
+                {saleItemSearchInput.trim() && saleSuggestedItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const searchTerm = saleItemSearchInput.toLowerCase().trim();
+                      // Add all matching items
+                      saleSuggestedItems.forEach(name => {
+                        if (name.toLowerCase().includes(searchTerm)) {
+                          handleSaleItemSelect(name);
+                        }
+                      });
+                      setSaleItemSearchInput('');
+                      setShowSaleItemSuggestions(false);
+                      setSuccess(`Added all matching "${searchTerm}" items!`);
+                    }}
+                    disabled={!selectedWarehouse || loading}
+                    className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"
+                  >
+                    Select All
+                  </button>
+                )}
+              </div>
               
               {/* Autocomplete Suggestions Dropdown */}
               {showSaleItemSuggestions && saleSuggestedItems.length > 0 && saleItemSearchInput.trim() && (
@@ -2482,6 +2514,15 @@ const Sales = () => {
 
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Items *</label>
+              {/* Total Items Counter for Proforma */}
+                {proformaItems.length > 0 && (
+                  <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
+                    <span className="text-green-700 font-bold text-lg">
+                      Total Items: {proformaItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* Item selector with autocomplete (auto-add, no duplicates) */}
               <div className="relative">
@@ -2502,6 +2543,29 @@ const Sales = () => {
                   className="border rounded px-3 py-2 w-full text-sm"
                   placeholder="Type item name to search..."
                 />
+                {/* Bulk Select All Button for Proforma */}
+                  {proformaItemSearchInput.trim() && proformaSuggestedItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const searchTerm = proformaItemSearchInput.toLowerCase().trim();
+                        // Add all matching items
+                        proformaSuggestedItems.forEach(name => {
+                          if (name.toLowerCase().includes(searchTerm)) {
+                            handleProformaItemSelect(name);
+                          }
+                        });
+                        setProformaItemSearchInput('');
+                        setShowProformaItemSuggestions(false);
+                        setSuccess(`Added all matching "${searchTerm}" items to proforma!`);
+                      }}
+                      disabled={!selectedWarehouse || loading}
+                      className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"
+                    >
+                      Select All
+                    </button>
+                  )}
+                </div>
                 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showProformaItemSuggestions && proformaSuggestedItems.length > 0 && proformaItemSearchInput.trim() && (

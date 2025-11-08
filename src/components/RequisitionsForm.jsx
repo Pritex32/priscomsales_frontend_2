@@ -468,22 +468,23 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
               {/* Item Search Input with Autocomplete */}
               <div className="relative mb-4">
                 <label className="block text-xs text-gray-600 mb-1">Type to Search and Select Item</label>
-                <input
-                  type="text"
-                  value={itemSearchInput}
-                  onChange={e => {
-                    setItemSearchInput(e.target.value);
-                    setShowItemSuggestions(true);
-                  }}
-                  onFocus={() => setShowItemSuggestions(true)}
-                  onBlur={() => {
-                    // Delay to allow click on suggestion
-                    setTimeout(() => setShowItemSuggestions(false), 200);
-                  }}
-                  disabled={!selectedWarehouse || loading}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  placeholder="Type item name to search..."
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={itemSearchInput}
+                    onChange={e => {
+                      setItemSearchInput(e.target.value);
+                      setShowItemSuggestions(true);
+                    }}
+                    onFocus={() => setShowItemSuggestions(true)}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowItemSuggestions(false), 200);
+                    }}
+                    disabled={!selectedWarehouse || loading}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    placeholder="Type item name to search..."
+                  />
                 {/* Bulk Select All Button */}
                 {itemSearchInput.trim() && suggestedItems.length > 0 && (
                   <button

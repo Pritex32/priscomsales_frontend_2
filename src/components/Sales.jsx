@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { decodeToken } from '../utils/tokenUtils';
 import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-toastify';
 const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const TabButton = ({ active, onClick, children, title }) => (
@@ -825,7 +826,10 @@ const Sales = () => {
       const response = await api.post('/sales/batch', payload);
       console.log('Sale response:', response.data);
       
-      setSuccess(`Sale recorded successfully! Final total: ₦${calculateGrandTotal().toLocaleString()}`);
+      const successMessage = `Sale recorded successfully! Final total: ₦${calculateGrandTotal().
+      toLocaleString()}`;
+      setSuccess(successMessage);
+      toast.success(successMessage);
       
       // Reset form
       setCustomerName('');
@@ -992,7 +996,9 @@ const Sales = () => {
         notes: proformaNotes || null,
       };
       await api.post('/sales/proforma', payload);
-      setSuccess('Proforma invoice created successfully!');
+      const successMessage = 'Proforma invoice created successfully!';
+      setSuccess(successMessage);    
+      toast.success(successMessage);
       // Reset form
       setProformaCustomer('');
       setProformaPhone('');
@@ -1069,6 +1075,7 @@ const Sales = () => {
       }
       
       setSuccess(successMsg);
+      toast.success('Proforma converted to sale successfully!');
       
       // Close modal and reset state
       setShowConversionModal(false);
@@ -3325,6 +3332,7 @@ const Sales = () => {
                                 }
                                 
                                 setSuccess(successMsg);
+                                toast.success('Payment updated successfully!');
                                 
                                 // Refresh pending list
                                 await loadPending();

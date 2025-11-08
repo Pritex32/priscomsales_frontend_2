@@ -2277,7 +2277,7 @@ const Sales = () => {
             <textarea value={notes} onChange={e => setNotes(e.target.value)} className="border rounded px-3 py-2 w-full" rows="3" placeholder="Optional notes" />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button 
               onClick={submitSale} 
               disabled={loading} 
@@ -2287,6 +2287,108 @@ const Sales = () => {
               {loading ? 'Submitting...' : 'Submit Sale'}
             </button>
             <button 
+              onClick={async () => {
+                // Validate that items are selected
+                if (saleItems.length === 0) {
+                  toast.error('Please add items before moving to requisition');
+                  return;
+                }
+                
+                if (!selectedWarehouse) {
+                  toast.error('Please select a warehouse first');
+                  return;
+                }
+                
+                // Validate items have proper data
+                for (let i = 0; i < saleItems.length; i++) {
+                  const item = saleItems[i];
+                  if (!item.item_name || item.item_name.trim() === '') {
+                    toast.error(`Item ${i + 1}: Please select an item from the dropdown`);
+                    return;
+                  }
+                  if (!item.quantity || Number(item.quantity) <= 0) {
+                    toast.error(`Item ${i + 1}: Quantity must be greater than 0`);
+                    return;
+                  }
+                }
+                
+                setLoading(true);
+                setError('');
+                setSuccess('');
+                try {
+                  // Get current user info
+                  const currentUser = await getCurrentUserInfo();
+                  const currentUsername = currentUser?.name || localStorage.getItem('username') || '';
+                  
+                  // Prepare requisition payload
+                  const requisitionPayload = {
+                    warehouse_name: selectedWarehouse,
+                    reason: `Items moved from Sales page by ${currentUsername}`,
+                    employee_id: currentUser?.id || null,
+                    employee_name: currentUsername,
+                    signature_base64: null,
+                    items: saleItems.map(item => ({
+                      item: item.item_name.trim(),
+                      quantity: parseInt(item.quantity)
+                    }))
+                  };
+                  
+                  console.log('Creating requisition from sales items:', requisitionPayload);
+                  
+                  // Create requisition using batch endpoint
+                  const response = await api.post('/requisitions/batch', requisitionPayload);
+                  const totalQuantity = saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+                  
+                  // Show success toast with details
+                  toast.success(`✅ Requisition created with ${saleItems.length} item(s) (Total: ${totalQuantity} units)`, {
+                    autoClose: 5000
+                  });
+                  
+                  // Check email notification status
+                  if (response.data) {
+                    const emailSent = response.data.email_sent;
+                    const emailConfigured = response.data.officer_email_configured;
+                    
+                    let fullMsg = `✅ ${successMsg}\n`;
+                    fullMsg += `📦 ${saleItems.length} item(s) moved to requisition\n`;
+                    fullMsg += `📊 Total quantity: ${saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}\n`;
+                    
+                    if (emailSent) {
+                      fullMsg += `📧 Email notification sent to inventory officer`;
+                      toast.success('Requisition created successfully!');
+                      toast.info('Email notification sent to inventory officer');
+                    } else if (!emailConfigured) {
+                      fullMsg += `⚠️ Warning: No inventory officer email configured`;
+                      toast.success('Requisition created successfully!');
+                      toast.warning('No inventory officer email configured');
+                    } else {
+                      toast.success('Requisition created successfully!');
+                    }
+                    
+                    setSuccess(fullMsg);
+                  } else {
+                    setSuccess(`✅ Requisition created with ${saleItems.length} item(s)`);
+                    toast.success('Requisition created successfully!');
+                  }
+                  
+                  // Note: We do NOT clear the sale items - user must click Submit Sale to clear them
+                  
+                } catch (e) {
+                  console.error('Failed to create requisition:', e);
+                  const errorMsg = e.response?.data?.detail || e.message;
+                  setError('Failed to create requisition: ' + errorMsg);
+                  toast.error('Failed to create requisition');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading || saleItems.length === 0}
+              className="px-6 py-3 rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+              title="Move selected items to requisition (items remain in sales form)"
+            >
+              {loading ? 'Processing...' : 'Move to Requisition'}
+            </button>
+            <button
               onClick={() => { 
                 setShowReceiptModal(true); 
                 loadReceiptCustomers();

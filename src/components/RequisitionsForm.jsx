@@ -449,6 +449,15 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Requested Items *
               </label>
+              {/* Total Items Counter */}
+                {formData.items.length > 0 && (
+                  <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
+                    <span className="text-green-700 font-bold text-lg">
+                      Total Items: {formData.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)}
+                    </span>
+                  </div>
+                )}
+              </div>
               
               {/* Warehouse selection reminder */}
               {!selectedWarehouse && (
@@ -476,6 +485,30 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   placeholder="Type item name to search..."
                 />
+                {/* Bulk Select All Button */}
+                  {itemSearchInput.trim() && suggestedItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const searchTerm = itemSearchInput.toLowerCase().trim();
+                        // Add all matching items
+                        suggestedItems.forEach(name => {
+                          if (name.toLowerCase().includes(searchTerm)) {
+                            handleItemSelect(name);
+                          }
+                        });
+                        setItemSearchInput('');
+                        setShowItemSuggestions(false);
+                        setSuccess(`Added all matching "${searchTerm}" items to requisition!`);
+                        setTimeout(() => setSuccess(''), 3000);
+                      }}
+                      disabled={!selectedWarehouse || loading}
+                      className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"
+                    >
+                      Select All
+                    </button>
+                  )}
+                </div>
                 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showItemSuggestions && suggestedItems.length > 0 && itemSearchInput.trim() && (

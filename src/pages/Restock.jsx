@@ -1901,6 +1901,15 @@ const Restock = () => {
               {restockForm.warehouse_name && (
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="font-medium text-gray-900 mb-3">Add Items</h3>
+                  {/* Total Items Counter for Restock */}
+                    {restockForm.selected_items.length > 0 && (
+                      <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
+                        <span className="text-green-700 font-bold text-lg">
+                          Total Items: {restockForm.selected_items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {Object.keys(inventoryItems).length === 0 ? (
                     <p className="text-gray-500 text-center py-4">No items found in selected warehouse</p>
@@ -1915,6 +1924,32 @@ const Restock = () => {
                           placeholder="Type item name to search..."
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
+                        {/* Bulk Select All Button for Restock */}
+                          {restockItemQuery.trim() && restockSuggestions.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const searchTerm = restockItemQuery.toLowerCase().trim();
+                                // Add all matching items
+                                restockSuggestions.forEach(name => {
+                                  if (name.toLowerCase().includes(searchTerm)) {
+                                    const it = inventoryItems[name] || {};
+                                    setRestockForm(prev => ({
+                                      ...prev,
+                                      selected_items: [...prev.selected_items, { item_name: name, quantity: 1, unit_price: Number(it.price || 0) }]
+                                    }));
+                                  }
+                                });
+                                setRestockItemQuery('');
+                                setShowItemSuggestions(false);
+                                toast.success(`Added all matching "${searchTerm}" items to restock!`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm whitespace-nowrap"
+                            >
+                              Select All
+                            </button>
+                          )}
+                        </div>
                         {showItemSuggestions && restockItemQuery && (
                           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
                             {restockSuggestions.length === 0 ? (

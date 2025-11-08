@@ -376,7 +376,8 @@ const Restock = () => {
       // Map payment method to backend expected values
       const paymentMethodMap = { check: 'cheque', cheque: 'cheque', cash: 'cash', transfer: 'transfer', card: 'card' };
       const payment_method = paymentMethodMap[(restockForm.payment_method || '').toLowerCase()] || 'cash';
-      // Calculate grand total
+      
+      // Calculate grand total from selected items
       const calculatedGrandTotal = calculateTotal(restockForm.selected_items);
       
       // Determine total_price_paid based on payment_status
@@ -386,9 +387,11 @@ const Restock = () => {
       } else if (restockForm.payment_status === 'partial') {
         total_price_paid = Number(restockForm.total_price_paid || 0);
       } else {
+        // credit
         total_price_paid = 0;
       }
-          // Validation: Ensure total_price_paid is correct
+      
+      // Validation: Ensure total_price_paid is correct
       console.log('=== PAYMENT CALCULATION DEBUG ===');
       console.log('Payment Status:', restockForm.payment_status);
       console.log('Selected Items:', restockForm.selected_items);
@@ -407,6 +410,18 @@ const Restock = () => {
         invoice_file_url = uploadRes.data?.invoice_file_url || null;
       }
       
+      // Build items array with proper fields
+      const itemsPayload = restockForm.selected_items.map(it => {
+        const inv = inventoryItems[it.item_name] || {};
+        return {
+          item_id: inv.item_id || null,
+          item_name: it.item_name,
+          quantity: Number(it.quantity || 0),
+          unit_price: Number(it.unit_price || 0),
+          warehouse_name: restockForm.warehouse_name
+        };
+      });
+      
       const payload = {
         supplier_name: restockForm.supplier_name,
         supplier_phone: restockForm.supplier_phone || null,
@@ -416,17 +431,8 @@ const Restock = () => {
         payment_method,
         due_date: restockForm.due_date || null,
         notes: restockForm.notes || null,
-        items: restockForm.selected_items.map(it => {
-          const inv = inventoryItems[it.item_name] || {};
-          return {
-            item_id: inv.item_id || null,
-            item_name: it.item_name,
-            quantity: Number(it.quantity || 0),
-            unit_price: Number(it.unit_price || 0),
-            warehouse_name: restockForm.warehouse_name
-          };
-        }),
-        total_price_paid: Number(restockForm.total_price_paid || 0),
+        items: itemsPayload,
+        total_price_paid: total_price_paid,
         invoice_file_url,
         employee_id: currentUser?.user_id || currentUser?.id || null,
         employee_name: currentUser?.username || null
@@ -434,6 +440,11 @@ const Restock = () => {
       
       console.log('=== RESTOCK BATCH SUBMISSION DEBUG ===');
       console.log('Warehouse:', restockForm.warehouse_name);
+      console.log('Payment Status:', restockForm.payment_status);
+      console.log('Selected Items for Calculation:', restockForm.selected_items);
+      console.log('Grand Total Calculated:', calculatedGrandTotal);
+      console.log('Total Price Paid (final):', total_price_paid);
+      console.log('Form total_price_paid field:', restockForm.total_price_paid);
       console.log('Inventory Items Available:', Object.keys(inventoryItems).length);
       console.log('Selected Items Count:', restockForm.selected_items.length);
       console.log('Full Payload:', JSON.stringify(payload, null, 2));
@@ -582,6 +593,7 @@ const Restock = () => {
 
   const validatePriceUpdateForm = () => {
     const errors = [];
+    
     console.log('=== PRICE UPDATE VALIDATION DEBUG ===');
     console.log('Warehouse Name:', priceUpdateForm.warehouse_name);
     console.log('Selected Items:', priceUpdateForm.selected_items);
@@ -602,7 +614,6 @@ const Restock = () => {
     }
     
     if (errors.length > 0) {
-      toast.error(errors.join('\n'));
       console.error('=== VALIDATION FAILED ===');
       console.error('All Errors:', errors);
       console.error('Form State:', JSON.stringify(priceUpdateForm, null, 2));
@@ -610,6 +621,7 @@ const Restock = () => {
       toast.error(errors.join('\n'));
       return false;
     }
+    
     console.log('=== VALIDATION PASSED ===');
     console.log('=====================================');
     return true;
@@ -1262,19 +1274,27 @@ const Restock = () => {
             </div>
             <div className="md:col-span-2">
               <button
-                onClick={() => {
-                  const rows = purchaseData.filter(row => {
-                    const d = row.purchase_date ? new Date(row.purchase_date) : null;
-                    if (!d) return false;
-                    const sd = exportStartDate ? new Date(exportStartDate) : null;
-                    const ed = exportEndDate ? new Date(exportEndDate) : null;
-                    return (!sd || d >= sd) && (!ed || d <= ed);
-                  });
-                  if (rows.length === 0) {
-                    toast.error('No data in selected date range');
-                    return;
-                  }
-                  const cleanCSVValue = (value) => {
+                onClick={async () => {
+                  try {
+                    // Use the backend endpoint for proper date filtering
+                    const params = {};
+                    if (exportStartDate) params.start_date = exportStartDate;
+                    if (exportEndDate) params.end_date = exportEndDate;
+                    
+                    console.log('Fetching export data with params:', params);
+                    const response = await apiService.get('/restock/history/range', { params });
+                    const rows = response.data || [];
+                    
+                    console.log('Export data received:', rows.length, 'rows');
+                    
+                    if (rows.length === 0) {
+                      toast.error('No data in selected date range');
+                      return;
+                    }
+                    
+                    // Generate CSV content with headers in first row, data in subsequent rows
+                    // Helper function to clean and escape CSV values
+                    const cleanCSVValue = (value) => {
                       if (value === null || value === undefined) return '';
                       const str = String(value);
                       // Remove newlines, carriage returns, and extra whitespace
@@ -1288,30 +1308,36 @@ const Restock = () => {
                       return escaped;
                     };
                     
-                  const csvContent = "data:text/csv;charset=utf-8," + 
-                    ["Item,Supplier,Quantity,Unit Price,Total,Date,Status,Warehouse"].concat(
-                      rows.map(row => 
-                        [
-                          row.item_name || '',
-                          row.supplier_name || '',
-                          row.supplied_quantity || 0,
-                          row.unit_price || 0,
-                          row.total_price_paid || 0,
-                          row.purchase_date || '',
-                          row.payment_status || '',
-                          row.warehouse_name || ''
-                        ].join(',')
-                      )
-                    ).join('\n');
-                  
-                  const encodedUri = encodeURI(csvContent);
-                  const link = document.createElement('a');
-                  link.setAttribute('href', encodedUri);
-                  link.setAttribute('download', `purchase_data_${exportStartDate || 'all'}_${exportEndDate || 'all'}.csv`);
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  toast.success(`Exported ${rows.length} rows`);
+                    const csvContent = "data:text/csv;charset=utf-8," +
+                      ["Item,Supplier,Quantity,Unit Price,Total Cost,Total Paid,Date,Status,Warehouse,Employee"].concat(
+                        rows.map(row =>
+                          [
+                            cleanCSVValue(row.item_name),
+                            cleanCSVValue(row.supplier_name),
+                            row.supplied_quantity || 0,
+                            row.unit_price || 0,
+                            row.total_cost || 0,
+                            row.total_price_paid || 0,
+                            row.purchase_date || '',
+                            cleanCSVValue(row.payment_status),
+                            cleanCSVValue(row.warehouse_name),
+                            cleanCSVValue(row.employee_name)
+                          ].join(',')
+                        )
+                      ).join('\n');
+                    
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', encodedUri);
+                    link.setAttribute('download', `restock_data_${exportStartDate || 'all'}_${exportEndDate || 'all'}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    toast.success(`Exported ${rows.length} rows`);
+                  } catch (error) {
+                    console.error('Export failed:', error);
+                    handleError('Failed to export data', error);
+                  }
                 }}
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center w-full justify-center"
               >
@@ -1457,7 +1483,7 @@ const Restock = () => {
             })()}
           </div>
 
-      {/* Recent Activity */}
+          {/* Recent Activity */}
           <div>
             <h3 className="text-lg font-medium mb-3">Recent Activity</h3>
             <div className="space-y-3">
@@ -1900,8 +1926,9 @@ const Restock = () => {
               {/* Items Selection */}
               {restockForm.warehouse_name && (
                 <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Add Items</h3>
-                  {/* Total Items Counter for Restock */}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-gray-900">Add Items</h3>
+                    {/* Total Items Counter for Restock */}
                     {restockForm.selected_items.length > 0 && (
                       <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
                         <span className="text-green-700 font-bold text-lg">
@@ -1916,15 +1943,16 @@ const Restock = () => {
                   ) : (
                     <div className="space-y-2">
                       <div className="relative">
-                        <input
-                          type="text"
-                          value={restockItemQuery}
-                          onChange={(e) => { setRestockItemQuery(e.target.value); setShowItemSuggestions(true); }}
-                          onFocus={() => setShowItemSuggestions(true)}
-                          placeholder="Type item name to search..."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* Bulk Select All Button for Restock */}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={restockItemQuery}
+                            onChange={(e) => { setRestockItemQuery(e.target.value); setShowItemSuggestions(true); }}
+                            onFocus={() => setShowItemSuggestions(true)}
+                            placeholder="Type item name to search..."
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          {/* Bulk Select All Button for Restock */}
                           {restockItemQuery.trim() && restockSuggestions.length > 0 && (
                             <button
                               type="button"
@@ -1977,6 +2005,9 @@ const Restock = () => {
                             )}
                           </div>
                         )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Type to search, then click to add. Use "Select All" to add all matching items at once.
+                        </div>
                       </div>
                     </div>
                   )}

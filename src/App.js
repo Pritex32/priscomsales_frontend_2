@@ -60,6 +60,19 @@ function App() {
     <Provider store={store}>
       <Router>
         <RBACBootstrap />
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+     
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/landing" element={<Landing />} />

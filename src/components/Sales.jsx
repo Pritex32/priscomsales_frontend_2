@@ -1791,7 +1791,7 @@ const Sales = () => {
         <div className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
             <button 
-              onClick={() => { setCurrentPage(1); loadList(); }} 
+              onClick={() => {loadList(); }} 
               className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
               title="Reload the sales list from database"
             >

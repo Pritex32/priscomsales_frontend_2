@@ -58,7 +58,8 @@ const RegisterForm = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setSuccess(data.msg || 'Registration successful! Please check your email to verify your account.');
+        const userEmail = formData.email; // Save email before clearing form
+        setSuccess(data.msg || 'Registration successful! Please check your email to verify your account.Redirecting to verification page...');
         
         // Clear form
         setFormData({
@@ -69,9 +70,10 @@ const RegisterForm = () => {
           acceptedTerms: false,
         });
         // Redirect to verification page with email after 2 seconds
+        // Redirect to verification page with email after 1.5 seconds
         setTimeout(() => {
-          navigate(`/verify-email?email=${encodeURIComponent(userEmail)}`);
-        }, 2000);
+          navigate(`/verify-email?email=${encodeURIComponent(userEmail)}`, { replace: true });
+        }, 1500);
         
       } else {
         const errorData = await response.json();

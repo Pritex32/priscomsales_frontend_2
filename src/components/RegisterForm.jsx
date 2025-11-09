@@ -60,20 +60,22 @@ const RegisterForm = () => {
         const data = await response.json();
         const userEmail = formData.email; // Save email before clearing form
         setSuccess(data.msg || 'Registration successful! Please check your email to verify your account.Redirecting to verification page...');
-        
-        // Clear form
-        setFormData({
-          username: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          acceptedTerms: false,
-        });
-        // Redirect to verification page with email after 2 seconds
+         // Redirect to verification page with email after 2 seconds
         // Redirect to verification page with email after 1.5 seconds
         setTimeout(() => {
           navigate(`/verify-email?email=${encodeURIComponent(userEmail)}`, { replace: true });
         }, 1500);
+        // Clear form
+        // Clear form after a brief delay
+        setTimeout(() => {
+          setFormData({
+            username: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            acceptedTerms: false,
+          });
+        }, 100);
         
       } else {
         const errorData = await response.json();

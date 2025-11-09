@@ -2670,6 +2670,8 @@ const Sales = () => {
                         setProformaItemSearchInput('');
                         setShowProformaItemSuggestions(false);
                         setSuccess(`Added all matching "${searchTerm}" items to proforma!`);
+                        toast.success(message, { autoClose: 3000 });
+                        console.log('Proforma Select All completed:', addedCount, 'items added');
                       }}
                       disabled={!selectedWarehouse || loading}
                       className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"

@@ -82,9 +82,10 @@ const VerifyEmail = () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL;
       
-      const response = await axios.post(`${API_BASE_URL}/auth/resend-verification`, {
-        email: email.trim()
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/resend-verification?email=${encodeURIComponent(email.trim())}`
+      );
+      
       
       setStatus('input');
       setMessage(response.data?.msg || 'Verification code sent to your email.');

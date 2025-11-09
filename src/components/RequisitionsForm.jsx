@@ -448,7 +448,7 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Requested Items *
-             </label>
+              </label>
              {/* Total Items Counter */}
              {formData.items.length > 0 && (
                <div className="px-4 py-2 rounded-lg bg-green-50 border-2 border-green-500">
@@ -508,6 +508,7 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
                     Select All
                   </button>
                 )}
+              </div>   
                 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showItemSuggestions && suggestedItems.length > 0 && itemSearchInput.trim() && (

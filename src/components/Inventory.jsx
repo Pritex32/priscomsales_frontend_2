@@ -76,6 +76,10 @@ const Inventory = () => {
   const [currentRecord, setCurrentRecord] = useState(null);
   const [adjustMsg, setAdjustMsg] = useState('');
   const [filteredItemsMap, setFilteredItemsMap] = useState({});
+  // Date range filters for edit inventory
+  const [adjustStartDate, setAdjustStartDate] = useState('');
+  const [adjustEndDate, setAdjustEndDate] = useState('');
+
 
   const refreshHomeData = React.useCallback(async () => {
     setLoading(true); setError('');
@@ -245,31 +249,36 @@ const Inventory = () => {
       setError(e?.response?.data?.detail || 'Failed to delete item');
     } finally { setLoading(false); }
   };
-
-  const fetchItemHistory = async (itemId) => {
+#-------------------------
+   const fetchItemHistory = async (itemId, startDate = null, endDate = null) => {
     if (!itemId) {
       setItemHistory([]);
       setAvailableDates([]);
       setAdjustDate('');
       setCurrentRecord(null);
+      setHistoryPage(1);
       return;
     }
     
+    
     try {
-      // Get last 30 days of history
-      const endDate = formatDate(today);
-      const startDateObj = new Date(today);
-      startDateObj.setDate(startDateObj.getDate() - 30);
-      const startDate = formatDate(startDateObj);
+      // Use provided date range or default to last 30 days
+      const end = endDate || formatDate(today);
+      let start = startDate;
+      if (!start) {
+        const startDateObj = new Date(today);
+        startDateObj.setDate(startDateObj.getDate() - 30);
+        start = formatDate(startDateObj);
+      }
       
       const res = await api.get('/inventory/filter', {
         params: {
-          start_date: startDate,
-          end_date: endDate,
+          start_date: start,
+          end_date: end,
           page: 1,
         },
       });
-      
+      #----------------------------
       const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
       setItemHistory(filtered);
       
@@ -325,9 +334,16 @@ const Inventory = () => {
         return;
       }
       
-      if (!adjustQty || Number(adjustQty) <= 0) {
+      if (adjustQty === '' || adjustQty === null || adjustQty === undefined) {
         console.error('Invalid quantity:', adjustQty);
-        setError('Please enter a valid quantity');
+        setError('Please enter a quantity (0 or greater)');
+        setLoading(false);
+        return;
+      }
+      const qtyNum = Number(adjustQty);
+      if (isNaN(qtyNum) || qtyNum < 0) {
+        console.error('Invalid quantity:', adjustQty);
+        setError('Please enter a valid quantity (0 or greater)');
         setLoading(false);
         return;
       }
@@ -725,6 +741,28 @@ const Inventory = () => {
             {adjustMsg && <div className="bg-green-50 text-green-700 border border-green-200 px-3 py-2 rounded mb-4">{adjustMsg}</div>}
             
             <div className="space-y-4">
+              
+              {/* Date Range Filter */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={adjustStartDate}
+                    onChange={e => setAdjustStartDate(e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={adjustEndDate}
+                    onChange={e => setAdjustEndDate(e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                </div>
+              </div>
 
               {/* Warehouse Filter */}
               <div>
@@ -771,7 +809,7 @@ const Inventory = () => {
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
                     Select date to edit
-                    {availableDates.length === 0 && <span className="text-red-600 ml-2">(No history available)</span>}
+                    {availableDates.length === 0 && <span className="text-red-600 ml-2">(No history available in selected range)</span>}
                   </label>
                   {availableDates.length > 0 ? (
                     <select 
@@ -802,7 +840,7 @@ const Inventory = () => {
                     </select>
                   ) : (
                     <div className="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500">
-                      This item has no history in the last 30 days
+                      This item has no history in the selected date range
                     </div>
                   )}
                 </div>
@@ -836,8 +874,8 @@ const Inventory = () => {
               {/* Current Balances & History */}
               {adjustItemId && availableDates.length > 0 && (
                 <div className="bg-gray-50 p-3 rounded border">
-                  <h4 className="font-medium text-sm mb-2">Recent Activity (Last 30 days)</h4>
-                  <div className="max-h-32 overflow-y-auto">
+                  <h4 className="font-medium text-sm mb-2">Recent Activity (Selected Range)</h4>
+                  <div className="overflow-x-auto">
                     <table className="min-w-full text-xs">
                       <thead>
                         <tr className="text-left border-b">
@@ -853,7 +891,7 @@ const Inventory = () => {
                         {itemHistory.length === 0 && (
                           <tr><td colSpan="6" className="text-center py-2 text-gray-500">No recent activity</td></tr>
                         )}
-                        {itemHistory.slice(0, 5).map((h, i) => (
+                        {itemHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize).map((h, i) => (
                           <tr key={i} className="border-b">
                             <td className="py-1 px-2">{h.log_date}</td>
                             <td className="py-1 px-2">{h.open_balance ?? 0}</td>
@@ -866,8 +904,34 @@ const Inventory = () => {
                       </tbody>
                     </table>
                   </div>
+                  {/* Pagination Controls */}
+                  {itemHistory.length > historyPageSize && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                      <div className="text-xs text-gray-600">
+                        Page {historyPage} of {Math.ceil(itemHistory.length / historyPageSize)}
+                        <span className="ml-2">({itemHistory.length} total records)</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                          disabled={historyPage <= 1}
+                        >
+                          Prev
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setHistoryPage(p => p + 1)}
+                          disabled={historyPage >= Math.ceil(itemHistory.length / historyPageSize)}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
 
               {/* Action Type */}
               <div>
@@ -905,16 +969,16 @@ const Inventory = () => {
                     </span>
                   )}
                 </label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  value={adjustQty} 
-                  onChange={e => setAdjustQty(e.target.value)} 
-                  className="w-full border rounded px-3 py-2" 
-                  placeholder="Enter new value"
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={adjustQty}
+                  onChange={e => setAdjustQty(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="Enter new value (0 or greater)"
                 />
               </div>
-
               {/* Notes */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Notes (optional)</label>

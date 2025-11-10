@@ -1471,40 +1471,66 @@ const Sales = () => {
 
   // Delete sale
   const deleteSale = async (saleId) => {
+    console.log('=== DELETE SALE DEBUG ===');
     console.log('Delete button clicked for sale:', saleId);
+    console.log('Sale ID type:', typeof saleId);
     console.log('canDeleteSales permission:', canDeleteSales);
+    console.log('Current loading state:', loading);
     
     if (!canDeleteSales) {
-      setError('You do not have permission to delete sales.');
+      const errorMsg = 'You do not have permission to delete sales.';
+      console.error(errorMsg);
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
-    if (!saleId) {
-      setError('Invalid sale ID. Cannot delete.');
+    if (!saleId || saleId === null || saleId === undefined) {
+      const errorMsg = 'Invalid sale ID. Cannot delete.';
+      console.error(errorMsg, 'Received:', saleId);
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
     if (!window.confirm(`Are you sure you want to delete Sale #${saleId}? This will revert inventory changes. This action cannot be undone.`)) {
+      console.log('Delete cancelled by user');
       return;
     }
     
     setLoading(true); setError(''); setSuccess('');
     try {
-      console.log('Sending delete request for sale:', saleId);
-      await api.delete(`/sales/${saleId}`);
-      setSuccess(`Sale #${saleId} deleted successfully!`);
+      console.log('Sending DELETE request to /sales/' + saleId);
+      const response = await api.delete(`/sales/${saleId}`);
+      console.log('Delete response:', response);
+      
+      const successMsg = `Sale #${saleId} deleted successfully!`;
+      setSuccess(successMsg);
+      toast.success(successMsg);
+      
       // Refresh the list
+      console.log('Refreshing list after delete, current tab:', tab);
       if (tab === 'List') {
-        loadList();
+        await loadList();
       } else if (tab === 'Filter') {
-        applyFilter();
+        await applyFilter();
       }
+      console.log('List refreshed successfully');
     } catch (e) {
-      console.error('Delete sale error:', e);
-      setError('Failed to delete sale: ' + (e.response?.data?.detail || e.message));
-    } finally { setLoading(false); }
+      console.error('=== DELETE SALE ERROR ===');
+      console.error('Error object:', e);
+      console.error('Error response:', e.response);
+      console.error('Error message:', e.message);
+      console.error('========================');
+      
+      const errorMsg = 'Failed to delete sale: ' + (e.response?.data?.detail || e.message);
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+      console.log('=== DELETE SALE COMPLETE ===');
+    }
   };
-
   // Report interpretations
   const interpretPaymentMethods = () => {
     const data = reportData?.payment_method_summary || [];
@@ -1662,7 +1688,17 @@ const Sales = () => {
                   {canDeleteSales && (
                     <td className="py-2 px-3">
                       <button
-                        onClick={() => deleteSale(row.sale_id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('Delete clicked for sale_id:', row.sale_id);
+                          if (row.sale_id) {
+                            deleteSale(row.sale_id);
+                          } else {
+                            console.error('No sale_id found in row:', row);
+                            setError('Cannot delete: Invalid sale ID');
+                          }
+                        }}
                         disabled={loading || !row.sale_id}
                         className="px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                         title="Delete Sale"

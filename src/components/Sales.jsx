@@ -1976,15 +1976,25 @@ const Sales = () => {
                     type="button"
                     onClick={() => {
                       const searchTerm = saleItemSearchInput.toLowerCase().trim();
-                      // Add all matching items
-                      saleSuggestedItems.forEach(name => {
-                        if (name.toLowerCase().includes(searchTerm)) {
-                          handleSaleItemSelect(name);
-                        }
-                      });
+                      // Collect all matching items first
+                      const newItems = saleSuggestedItems
+                        .filter(name => name.toLowerCase().includes(searchTerm))
+                        .map(name => {
+                          const inv = inventoryItems[name] || {};
+                          return {
+                            item_name: name,
+                            quantity: 1,
+                            unit_price: Number(inv.price) || 0,
+                            item_id: inv.item_id,
+                          };
+                        });
+                      
+                      // Add all items at once to the top
+                      setSaleItems(prev => [...newItems, ...prev]);
+                      
                       setSaleItemSearchInput('');
                       setShowSaleItemSuggestions(false);
-                      setSuccess(`Added all matching "${searchTerm}" items!`);
+                      setSuccess(`Added ${newItems.length} matching "${searchTerm}" items!`);
                     }}
                     disabled={!selectedWarehouse || loading}
                     className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"

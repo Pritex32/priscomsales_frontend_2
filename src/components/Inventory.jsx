@@ -249,7 +249,7 @@ const Inventory = () => {
       setError(e?.response?.data?.detail || 'Failed to delete item');
     } finally { setLoading(false); }
   };
-#-------------------------
+
    const fetchItemHistory = async (itemId, startDate = null, endDate = null) => {
     if (!itemId) {
       setItemHistory([]);
@@ -278,7 +278,7 @@ const Inventory = () => {
           page: 1,
         },
       });
-      #----------------------------
+      
       const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
       setItemHistory(filtered);
       

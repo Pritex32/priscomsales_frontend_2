@@ -3243,12 +3243,12 @@ const Sales = () => {
                     
                     // Get amounts (now reflecting grouped totals)
                     const totalAmount = parseFloat(
-                      tx.total_cost || tx.total_amount || 0
+                      tx.grand_total || tx.total_cost || tx.total_amount || 0
                     );
                     const amountPaid = parseFloat(
                       tx.total_price_paid || tx.amount_paid || 0
                     );
-                    const outstandingAmount = totalAmount - amountPaid;
+                    const outstandingAmount = Math.max(totalAmount - amountPaid, 0);
                     
                     // Get status and payment info
                     const paymentStatus = tx.payment_status || 'unknown';

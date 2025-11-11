@@ -1958,24 +1958,28 @@ const Restock = () => {
                               type="button"
                               onClick={() => {
                                 const searchTerm = restockItemQuery.toLowerCase().trim();
-                                // Add all matching items
-                                restockSuggestions.forEach(name => {
-                                  if (name.toLowerCase().includes(searchTerm)) {
+                                // Collect all matching items first
+                                const newItems = restockSuggestions
+                                  .filter(name => name.toLowerCase().includes(searchTerm))
+                                  .map(name => {
                                     const it = inventoryItems[name] || {};
-                                    setRestockForm(prev => ({
-                                      ...prev,
-                                      selected_items: [...prev.selected_items, { item_name: name, quantity: 1, unit_price: Number(it.price || 0) }]
-                                    }));
-                                  }
-                                });
+                                    return { item_name: name, quantity: 1, unit_price: Number(it.price || 0) };
+                                  });
+                                
+                                // Add all items at once
+                                setRestockForm(prev => ({
+                                  ...prev,
+                                  selected_items: [...prev.selected_items, ...newItems]
+                                }));
+                                
                                 setRestockItemQuery('');
                                 setShowItemSuggestions(false);
-                                toast.success(`Added all matching "${searchTerm}" items to restock!`);
+                                toast.success(`Added ${newItems.length} matching "${searchTerm}" items to restock!`);
                               }}
                               className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm whitespace-nowrap"
                             >
                               Select All
-                            </button>
+                            </button>                          
                           )}
                         </div>
                         {showItemSuggestions && restockItemQuery && (

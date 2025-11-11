@@ -2707,17 +2707,28 @@ const Sales = () => {
                       type="button"
                       onClick={() => {
                         const searchTerm = proformaItemSearchInput.toLowerCase().trim();
-                        // Add all matching items
-                        proformaSuggestedItems.forEach(name => {
-                          if (name.toLowerCase().includes(searchTerm)) {
-                            handleProformaItemSelect(name);
-                          }
-                        });
+                        // Collect all matching items first
+                        const newItems = proformaSuggestedItems
+                          .filter(name => name.toLowerCase().includes(searchTerm))
+                          .map(name => {
+                            const inv = inventoryItems[name] || {};
+                            return {
+                              item_name: name,
+                              quantity: 1,
+                              unit_price: Number(inv.price) || 0,
+                              item_id: inv.item_id,
+                            };
+                          });
+                        
+                        // Add all items at once to the top
+                        setProformaItems(prev => [...newItems, ...prev]);
+                        
                         setProformaItemSearchInput('');
                         setShowProformaItemSuggestions(false);
-                        setSuccess(`Added all matching "${searchTerm}" items to proforma!`);
+                        const message = `✅ Added ${newItems.length} item(s) matching "${searchTerm}" to proforma!`;
+                        setSuccess(message);
                         toast.success(message, { autoClose: 3000 });
-                        console.log('Proforma Select All completed:', addedCount, 'items added');
+                        console.log('Proforma Select All completed:', newItems.length, 'items added');
                       }}
                       disabled={!selectedWarehouse || loading}
                       className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"

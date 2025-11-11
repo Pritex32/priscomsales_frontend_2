@@ -485,28 +485,36 @@ const RequisitionsForm = ({ requisition, onBack, onSave }) => {
                     className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     placeholder="Type item name to search..."
                   />
-                {/* Bulk Select All Button */}
-                {itemSearchInput.trim() && suggestedItems.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const searchTerm = itemSearchInput.toLowerCase().trim();
-                      // Add all matching items
-                      suggestedItems.forEach(name => {
-                        if (name.toLowerCase().includes(searchTerm)) {
-                          handleItemSelect(name);
-                        }
-                      });
-                      setItemSearchInput('');
-                      setShowItemSuggestions(false);
-                      setSuccess(`Added all matching "${searchTerm}" items to requisition!`);
-                      setTimeout(() => setSuccess(''), 3000);
-                    }}
-                    disabled={!selectedWarehouse || loading}
-                    className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"
-                  >
-                    Select All
-                  </button>
+                  {/* Bulk Select All Button */}
+                  {itemSearchInput.trim() && suggestedItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const searchTerm = itemSearchInput.toLowerCase().trim();
+                        // Collect all matching items first
+                        const newItems = suggestedItems
+                          .filter(name => name.toLowerCase().includes(searchTerm))
+                          .map(name => ({
+                            item: name,
+                            quantity: 1
+                          }));
+                        
+                        // Add all items at once to the top
+                        setFormData(prev => ({
+                          ...prev,
+                          items: [...newItems, ...prev.items]
+                        }));
+                        
+                        setItemSearchInput('');
+                        setShowItemSuggestions(false);
+                        setSuccess(`Added ${newItems.length} matching "${searchTerm}" items to requisition!`);
+                        setTimeout(() => setSuccess(''), 3000);
+                      }}
+                      disabled={!selectedWarehouse || loading}
+                      className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm whitespace-nowrap"
+                    >
+                      Select All
+                    </button>
                 )}
               </div>   
                 

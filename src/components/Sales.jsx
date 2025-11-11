@@ -3407,10 +3407,46 @@ const Sales = () => {
                                 id={`evidence-file-${idx}`}
                                 accept=".jpg,.jpeg,.png,.pdf"
                                 className="border rounded px-3 py-2 w-full text-sm"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const file = e.target.files[0];
                                   if (file) {
-                                    e.target.dataset.hasFile = 'true';
+                                    // Validate file type
+                                    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+                                    if (!validTypes.includes(file.type)) {
+                                      toast.error('Invalid file type. Please upload PNG, JPG, or PDF');
+                                      e.target.value = '';
+                                      return;
+                                    }
+                                    
+                                    // Validate file size (10MB limit)
+                                    if (file.size > 10 * 1024 * 1024) {
+                                      toast.error('File too large. Maximum size is 10MB.');
+                                      e.target.value = '';
+                                      return;
+                                    }
+                                    
+                                    // Upload to Supabase storage
+                                    setLoading(true);
+                                    try {
+                                      const formData = new FormData();
+                                      formData.append('invoice_file', file);
+                                      formData.append('desired_name', `payment_evidence_${Date.now()}`);
+                                      
+                                      const response = await api.post('/sales/upload-invoice', formData, {
+                                        headers: { 'Content-Type': 'multipart/form-data' }
+                                      });
+                                      
+                                      const uploadedUrl = response.data.invoice_file_url;
+                                      e.target.dataset.invoiceUrl = uploadedUrl;
+                                      e.target.dataset.hasFile = 'true';
+                                      toast.success('✅ Payment evidence uploaded successfully!');
+                                    } catch (error) {
+                                      console.error('Failed to upload evidence:', error);
+                                      setError('Failed to upload evidence: ' + (error.response?.data?.detail || error.message));
+                                      e.target.value = '';
+                                    } finally {
+                                      setLoading(false);
+                                    }
                                   }
                                 }}
                               />
@@ -3453,6 +3489,50 @@ const Sales = () => {
                                   const video = document.getElementById(`camera-preview-${idx}`);
                                   video.srcObject = stream;
                                   
+                                  document.getElementById(`capture-btn-${idx}`).onclick = async () => {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = video.videoWidth;
+                                    canvas.height = video.videoHeight;
+                                    canvas.getContext('2d').drawImage(video, 0, 0);
+                                    
+                                    canvas.toBlob(async (blob) => {
+                                      const file = new File([blob], `payment_evidence_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                                      
+                                      // Upload to Supabase storage
+                                      setLoading(true);
+                                      try {
+                                        const formData = new FormData();
+                                        formData.append('invoice_file', file);
+                                        formData.append('desired_name', `payment_evidence_${Date.now()}`);
+                                        
+                                        const response = await api.post('/sales/upload-invoice', formData, {
+                                          headers: { 'Content-Type': 'multipart/form-data' }
+                                        });
+                                        
+                                        const uploadedUrl = response.data.invoice_file_url;
+                                        const fileInput = document.getElementById(`evidence-file-${idx}`);
+                                        const dataTransfer = new DataTransfer();
+                                        dataTransfer.items.add(file);
+                                        fileInput.files = dataTransfer.files;
+                                        fileInput.dataset.invoiceUrl = uploadedUrl;
+                                        fileInput.dataset.hasFile = 'true';
+                                        
+                                        stream.getTracks().forEach(track => track.stop());
+                                        document.body.removeChild(modal);
+                                        
+                                        toast.success('✅ Payment evidence captured and uploaded successfully!');
+                                      } catch (error) {
+                                        console.error('Failed to upload evidence:', error);
+                                        toast.error('Failed to upload evidence: ' + (error.response?.data?.detail || error.message));
+                                        stream.getTracks().forEach(track => track.stop());
+                                        document.body.removeChild(modal);
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }, 'image/jpeg', 0.9);
+                                  };
+                             
+                                  
                                   document.getElementById(`capture-btn-${idx}`).onclick = () => {
                                     const canvas = document.createElement('canvas');
                                     canvas.width = video.videoWidth;
@@ -3480,7 +3560,7 @@ const Sales = () => {
                                   };
                                   
                                 } catch (err) {
-                                  setError('Failed to access camera: ' + err.message);
+                                  toast.error('Failed to access camera: ' + err.message);
                                 }
                               }}
                               className="w-full px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
@@ -3502,14 +3582,17 @@ const Sales = () => {
                                 : parseFloat(amountInput?.value || 0);
                               
                               if (!paymentAmount || paymentAmount <= 0) {
-                                setError('Please enter a valid payment amount.');
+                                toast.error('Please enter a valid payment amount.');
                                 return;
                               }
                               
-                              // Get evidence file
-                              const evidenceFile = document.getElementById(`evidence-file-${idx}`)?.files[0];
-                              if (!evidenceFile) {
-                                setError('❌ You must upload or capture payment evidence before updating payment.');
+                              // Get evidence file input
+                              const evidenceFileInput = document.getElementById(`evidence-file-${idx}`);
+                              const evidenceFile = evidenceFileInput?.files[0];
+                              const invoiceUrl = evidenceFileInput?.dataset?.invoiceUrl;
+                              
+                              if (!evidenceFile && !invoiceUrl) {
+                                toast.error('❌ You must upload or capture payment evidence before updating payment.');
                                 return;
                               }
                               
@@ -3532,19 +3615,20 @@ const Sales = () => {
                                   transactionType = 'expense';
                                   recordId = expenseId;
                                 } else {
-                                  setError('❌ No valid transaction ID found.');
+                                  toast.error('❌ No valid transaction ID found.');
                                   setLoading(false);
                                   return;
                                 }
                                 
-                                // Call the payment API
+                                // Call the payment API with invoice URL
                                 const paymentPayload = {
                                   transaction_type: transactionType,
                                   record_id: recordId,
                                   amount: paymentAmount,
                                   payment_method: paymentMethod || 'cash',
                                   notes: `${updateType === 'full' ? 'Full' : 'Partial'} payment via dashboard${tx.item_count > 1 ? ` (${tx.item_count} items)` : ''}`,
-                                  transaction_date: transactionDate
+                                  transaction_date: transactionDate,
+                                  invoice_file_url: invoiceUrl || null
                                 };
                                 
                                 console.log('Submitting payment for grouped transaction:', paymentPayload);
@@ -3573,7 +3657,7 @@ const Sales = () => {
                                 await loadPending();
                               } catch (e) {
                                 console.error('Payment update failed:', e);
-                                setError('Failed to update payment: ' + (e.response?.data?.detail || e.message));
+                                toast.error('Failed to update payment: ' + (e.response?.data?.detail || e.message));
                               } finally {
                                 setLoading(false);
                               }

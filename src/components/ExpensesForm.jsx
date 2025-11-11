@@ -47,6 +47,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
   const canvasRef = useRef(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
+  
 
   // Get user info
   const username = localStorage.getItem('username') || '';
@@ -158,61 +159,54 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
     }
   };
 
-  // Camera functions
-  const startCamera = async () => {
+ const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
       });
+      setCameraActive(true);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready and play it
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play()
-            .then(() => {
-              setCameraActive(true);
-            })
-            .catch(err => {
-              console.error('Error playing video:', err);
-              setError('Failed to start camera preview: ' + err.message);
-            });
-        };
-      }
+      // Attach stream to video element
+      setTimeout(() => {
+        const video = document.getElementById('expense-camera-video');
+        if (video) {
+          video.srcObject = stream;
+          video.play().catch(err => {
+            console.error('Error playing video:', err);
+            setError('Failed to start camera preview: ' + err.message);
+          });
+        }
+      }, 100);
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Failed to access camera. Please check permissions: ' + err.message);
+      setError('Failed to access camera: ' + err.message);
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
+    const video = document.getElementById('expense-camera-video');
+    if (video && video.srcObject) {
+      const tracks = video.srcObject.getTracks();
       tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+      video.srcObject = null;
     }
     setCameraActive(false);
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) {
+    const video = document.getElementById('expense-camera-video');
+    if (!video) {
       setError('Camera not ready. Please try again.');
       return;
     }
 
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    
-    // Check if video has valid dimensions
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setError('Camera not ready. Please wait a moment and try again.');
-      return;
-    }
-    
+    const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
     
@@ -220,11 +214,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
       if (blob) {
         const file = new File([blob], `expense_camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
         setInvoiceFile(file);
-        
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (e) => setCapturedImage(e.target.result);
-        reader.readAsDataURL(blob);
+        setCapturedImage(canvas.toDataURL('image/jpeg'));
         
         // Upload the file
         setLoading(true);
@@ -246,7 +236,7 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
       }
     }, 'image/jpeg', 0.9);
   };
-
+  
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -521,12 +511,13 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
               </div>
             </div>
 
-            {/* Invoice File Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FileText className="w-4 h-4 inline mr-1" />
-                Invoice File
-              </label>
+            {/* Invoice File Upload - Hidden when payment status is credit */}
+            {formData.payment_status !== 'credit' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FileText className="w-4 h-4 inline mr-1" />
+                  Invoice File
+                </label>
               
               {/* Upload Mode Selection */}
               <div className="flex items-center gap-4 mb-4">
@@ -591,35 +582,35 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
                   )}
 
                   {cameraActive && (
-                    <div className="space-y-3">
-                      <div className="relative bg-black rounded-lg overflow-hidden">
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          className="w-full h-auto"
-                          style={{ maxHeight: '400px' }}
-                        />
+                      <div className="space-y-3">
+                        <div className="relative bg-black rounded-lg overflow-hidden">
+                          <video
+                            id="expense-camera-video"
+                            autoPlay
+                            playsInline
+                            className="w-full h-auto"
+                            style={{ maxHeight: '400px' }}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={capturePhoto}
+                            disabled={loading}
+                            className="flex-1 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          >
+                            📸 Capture Photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopCamera}
+                            className="flex-1 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                          >
+                            ✕ Cancel
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={capturePhoto}
-                          disabled={loading}
-                          className="flex-1 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                        >
-                          📸 Capture Photo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={stopCamera}
-                          className="flex-1 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-                        >
-                          ✕ Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    )}
 
                   {capturedImage && (
                     <div className="space-y-3">
@@ -661,7 +652,8 @@ const ExpensesForm = ({ expense, onBack, onSave }) => {
                   </a>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {/* Notes */}
             <div>

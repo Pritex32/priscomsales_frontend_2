@@ -120,6 +120,13 @@ const Inventory = () => {
     const id = setInterval(() => { refreshHomeData(); }, 8000);
     return () => clearInterval(id);
   }, [tab, selectedDate]);
+  / Re-fetch item history when date range changes
+  useEffect(() => {
+    if (adjustItemId && showAdjustModal) {
+      fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);
+    }
+  }, [adjustStartDate, adjustEndDate]);
+
 
 
   const handleReturnItem = async () => {
@@ -767,14 +774,18 @@ const Inventory = () => {
               {/* Warehouse Filter */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Filter by warehouse (optional)</label>
-                <select 
-                  value={adjustWarehouse} 
-                  onChange={e => {
+                <select
+                  value={adjustWarehouse}
+                  onChange={async (e) => {
                     const warehouse = e.target.value;
                     setAdjustWarehouse(warehouse);
                     setAdjustItemId(''); // Reset selected item when warehouse changes
+                    setItemHistory([]); // Clear history when warehouse changes
+                    setAvailableDates([]);
+                    setAdjustDate('');
+                    setCurrentRecord(null);
                     if (warehouse) {
-                      fetchItemsByWarehouse(warehouse);
+                      await fetchItemsByWarehouse(warehouse);
                     } else {
                       setFilteredItemsMap(itemsMap); // Reset to all items
                     }
@@ -789,12 +800,20 @@ const Inventory = () => {
               {/* Item Selection */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Select item</label>
-                <select 
-                  value={adjustItemId} 
-                  onChange={e => {
-                    setAdjustItemId(e.target.value);
-                    fetchItemHistory(e.target.value);
-                  }} 
+                <select
+                  value={adjustItemId}
+                  onChange={async (e) => {
+                    const itemId = e.target.value;
+                    setAdjustItemId(itemId);
+                    if (itemId) {
+                      await fetchItemHistory(itemId, adjustStartDate || null, adjustEndDate || null);
+                    } else {
+                      setItemHistory([]);
+                      setAvailableDates([]);
+                      setAdjustDate('');
+                      setCurrentRecord(null);
+                    }
+                  }}
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">Select item</option>
@@ -803,6 +822,7 @@ const Inventory = () => {
                   ))}
                 </select>
               </div>
+
 
               {/* Date Selection - Only show if item has history */}
               {adjustItemId && (

@@ -255,7 +255,7 @@ const Inventory = () => {
     } finally { setLoading(false); }
   };
 
-   const fetchItemHistory = React.useCallback(async (itemId, startDate = null, endDate = null) => {
+   const fetchItemHistory = React.useCallback(async (itemId, startDate = null, endDate = null, warehouseName = null) => {
     if (!itemId) {
       setItemHistory([]);
       setAvailableDates([]);
@@ -268,62 +268,38 @@ const Inventory = () => {
     
     
     try {
-      // If no date range provided, use a very wide range to get all history
-      // Backend requires both start_date and end_date (not optional)
-      let start = startDate;
-      let end = endDate;
+      // Default to wide date range if not provided
+      let start = startDate || formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 10)));
+      let end = endDate || formatDate(today);
       
-      if (!start && !end) {
-        // No dates selected - fetch ALL history by using a very wide date range
-        // Start from 10 years ago to capture all historical data
-        const startDateObj = new Date(today);
-        startDateObj.setFullYear(startDateObj.getFullYear() - 10);
-        start = formatDate(startDateObj);
-        end = formatDate(today);
-      } else if (!start) {
-        // Only end date provided - start from 10 years ago
-        const startDateObj = new Date(today);
-        startDateObj.setFullYear(startDateObj.getFullYear() - 10);
-        start = formatDate(startDateObj);
-      } else if (!end) {
-        // Only start date provided - end at today
-        end = formatDate(today);
-      }
+      // Fetch all history for the date range - same as Filter tab
+      const res = await api.get('/inventory/filter', {
+        params: {
+          start_date: start,
+          end_date: end,
+          page: 1,
+        },
+      });
       
-      // Fetch ALL pages to get complete history for the item
-      let allData = [];
-      let page = 1;
-      let hasMore = true;
+      const allData = res.data || [];
       
-      while (hasMore) {
-        const res = await api.get('/inventory/filter', {
-          params: {
-            start_date: start,
-            end_date: end,
-            page: page,
-          },
-        });
-        
-        const pageData = res.data || [];
-        if (pageData.length === 0) {
-          hasMore = false;
-        } else {
-          allData = allData.concat(pageData);
-          // Backend returns 20 items per page, if less than 20, we've reached the end
-          if (pageData.length < 20) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        }
-      }
+      // Filter by item_id on frontend
+      const filtered = allData.filter(r => r.item_id === Number(itemId));
       
-      const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
+      // Sort by date descending (most recent first)
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.log_date || '');
+        const dateB = new Date(b.log_date || '');
+        return dateB - dateA;
+      });
+      
       setItemHistory(filtered);
       
       // Extract available dates from history
       const dates = filtered.map(r => r.log_date).filter(d => d);
       setAvailableDates(dates);
+      
+      // Set the most recent date as default
       
       // Set the most recent date as default
       if (dates.length > 0) {

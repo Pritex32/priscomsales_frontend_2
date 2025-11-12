@@ -3544,10 +3544,20 @@ const Sales = () => {
                                           const dataTransfer = new DataTransfer();
                                           dataTransfer.items.add(file);
                                           fileInput.files = dataTransfer.files;
+                                          
+                                          // Set dataset properties AFTER file is set
                                           fileInput.dataset.invoiceUrl = uploadedUrl;
                                           fileInput.dataset.hasFile = 'true';
+                                          fileInput.dataset.uploadComplete = 'true';
+                                          
+                                          console.log('Dataset set on file input:', {
+                                            invoiceUrl: fileInput.dataset.invoiceUrl,
+                                            hasFile: fileInput.dataset.hasFile,
+                                            uploadComplete: fileInput.dataset.uploadComplete
+                                          });
+                                        } else {
+                                          console.error('ERROR: Could not find file input element evidence-file-' + idx);
                                         }
-                                        
                                         stream.getTracks().forEach(track => track.stop());
                                         document.body.removeChild(modal);
                                         

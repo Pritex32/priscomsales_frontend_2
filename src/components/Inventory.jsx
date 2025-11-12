@@ -120,12 +120,15 @@ const Inventory = () => {
     const id = setInterval(() => { refreshHomeData(); }, 8000);
     return () => clearInterval(id);
   }, [tab, selectedDate]);
+  
   //Re-fetch item history when date range changes
+ / Re-fetch item history when date range changes
   useEffect(() => {
     if (adjustItemId && showAdjustModal) {
       fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);
     }
-  }, [adjustStartDate, adjustEndDate]);
+  }, [adjustStartDate, adjustEndDate, adjustItemId, showAdjustModal]);
+
 
 
 

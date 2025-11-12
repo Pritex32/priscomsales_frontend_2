@@ -26,6 +26,7 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -52,13 +53,22 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
       if (statusFilter) params.status = statusFilter;
       
       const response = await requisitionsApi.getRequisitions(params);
-      setRequisitions(response.data || []);
+      
+      // Handle both old format (array) and new format (object with data/total)
+      if (Array.isArray(response.data)) {
+        setRequisitions(response.data);
+        setTotalCount(response.data.length);
+      } else {
+        setRequisitions(response.data.data || []);
+        setTotalCount(response.data.total || 0);
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to fetch requisitions');
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchRequisitions();
@@ -124,7 +134,12 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
     try {
       await requisitionsApi.deleteRequisition(id);
       toast.success('Requisition deleted successfully');
-      fetchRequisitions();
+      // If deleting the last item on current page and not on page 1, go to previous page
+      if (requisitions.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        fetchRequisitions();
+      }
     } catch (err) {
       const errorMsg = err?.response?.data?.detail || 'Failed to delete requisition';
       toast.error(errorMsg);
@@ -201,10 +216,9 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
     }
   };
 
-  const totalPages = Math.ceil(requisitions.length / itemsPerPage);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentRequisitions = requisitions.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, totalCount);
 
   return (
     <div className="space-y-6">
@@ -387,7 +401,7 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {currentRequisitions.length === 0 ? (
+                  {requisitions.length === 0  ? (
                     <tr>
                       <td colSpan={canUpdateRemark ? "8" : "7"} className="px-6 py-12 text-center text-gray-500">
                         <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -396,7 +410,7 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
                       </td>
                     </tr>
                   ) : (
-                    currentRequisitions.map((req) => (
+                    requisitions.map((req) => (
                       <tr key={req.requisition_id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">#{req.requisition_id}</div>
@@ -494,19 +508,19 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {totalCount > itemsPerPage && (
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 flex justify-between sm:hidden">
                     <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                       className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
                     <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
                       className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -517,36 +531,29 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
                     <div>
                       <p className="text-sm text-gray-700">
                         Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(endIndex, requisitions.length)}</span> of{' '}
-                        <span className="font-medium">{requisitions.length}</span> results
+                        <span className="font-medium">{endIndex}</span> of{' '}
+                        <span className="font-medium">{totalCount}</span> results
                       </p>
                     </div>
                     <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                         <button
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           Previous
                         </button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              page === currentPage
-                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ))}
+                        
+                        {/* Page number display */}
+                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        
                         <button
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           Next
                         </button>

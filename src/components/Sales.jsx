@@ -3620,22 +3620,39 @@ const Sales = () => {
                               }
                               
                              // Get evidence file input
+                              // Get evidence file input
                               const evidenceFileInput = document.getElementById(`evidence-file-${idx}`);
                               const evidenceFile = evidenceFileInput?.files[0];
                               const invoiceUrl = evidenceFileInput?.dataset?.invoiceUrl;
+                              const uploadComplete = evidenceFileInput?.dataset?.uploadComplete;
                               
                               console.log('Payment update validation:', {
                                 hasFile: !!evidenceFile,
                                 hasUrl: !!invoiceUrl,
+                                uploadComplete: uploadComplete,
                                 invoiceUrl: invoiceUrl
                               });
                               
+                              
                               // Validate that invoice was actually uploaded successfully
+                               if (!evidenceFile) {
+                                toast.error('❌ Please select a payment evidence file first.');
+                                setError('Payment evidence file is required. Please upload or capture the invoice.');
+                                return;
+                              }
+                              
+                              if (!uploadComplete || uploadComplete !== 'true') {
+                                toast.error('❌ Payment evidence upload is still in progress. Please wait for upload to complete.');
+                                setError('Upload in progress. Please wait for the success message before updating payment.');
+                                return;
+                              }
+                              
                               if (!invoiceUrl || invoiceUrl === 'undefined' || invoiceUrl === 'null') {
-                                toast.error('❌ Payment evidence must be uploaded successfully before updating payment. Please upload or capture the invoice again.');
+                                toast.error('❌ Payment evidence upload failed. Please try uploading again.');
                                 setError('Invoice upload incomplete. Please upload payment evidence again.');
                                 return;
                               }
+                              
                               
                               setLoading(true);
                               setError('');

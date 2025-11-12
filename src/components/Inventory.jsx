@@ -255,7 +255,7 @@ const Inventory = () => {
     } finally { setLoading(false); }
   };
 
-   const fetchItemHistory = React.useCallback(async (itemId, startDate = null, endDate = null, warehouseName = null) => {
+   const fetchItemHistory = React.useCallback(async (itemId, startDate = null, endDate = null) => {
     if (!itemId) {
       setItemHistory([]);
       setAvailableDates([]);
@@ -272,28 +272,40 @@ const Inventory = () => {
       let start = startDate || formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 10)));
       let end = endDate || formatDate(today);
       
-      // Fetch all history for the date range - same as Filter tab
-      const res = await api.get('/inventory/filter', {
-        params: {
-          start_date: start,
-          end_date: end,
-          page: 1,
-        },
-      });
+      console.log('Using date range:', start, 'to', end);
       
-      const allData = res.data || [];
+      // Fetch ALL pages like the Filter tab does - this is critical!
+      let allData = [];
+      let page = 1;
+      let hasMore = true;
       
-      // Filter by item_id on frontend
-      const filtered = allData.filter(r => r.item_id === Number(itemId));
+      while (hasMore) {
+        console.log('Fetching page', page);
+        const res = await api.get('/inventory/filter', {
+          params: {
+            start_date: start,
+            end_date: end,
+            page: page,
+          },
+        });
+        
+        const pageData = res.data || [];
+        console.log(`Page ${page} returned ${pageData.length} records`);
+        
+        if (pageData.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(pageData);
+          // Backend returns 20 items per page
+          if (pageData.length < 20) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
       
-      // Sort by date descending (most recent first)
-      filtered.sort((a, b) => {
-        const dateA = new Date(a.log_date || '');
-        const dateB = new Date(b.log_date || '');
-        return dateB - dateA;
-      });
-      
-      setItemHistory(filtered);
+      console.log('Total records fetched:', allData.length);
       
       // Extract available dates from history
       const dates = filtered.map(r => r.log_date).filter(d => d);

@@ -3427,7 +3427,9 @@ const Sales = () => {
                                     
                                     // Upload to Supabase storage
                                     setLoading(true);
+                                    setError('');
                                     try {
+                                      console.log('Uploading payment evidence file:', file.name);
                                       const formData = new FormData();
                                       formData.append('invoice_file', file);
                                       formData.append('desired_name', `payment_evidence_${Date.now()}`);
@@ -3436,14 +3438,30 @@ const Sales = () => {
                                         headers: { 'Content-Type': 'multipart/form-data' }
                                       });
                                       
+                                      console.log('Upload response:', response);
+                                      
+                                      // Validate response has the expected data
+                                      if (!response.data || !response.data.invoice_file_url) {
+                                        throw new Error('Upload failed: No invoice URL returned from server');
+                                      }
+                                      
                                       const uploadedUrl = response.data.invoice_file_url;
+                                      console.log('Invoice uploaded successfully:', uploadedUrl);
+                                      
+                                      // Store the URL in the input element's dataset
                                       e.target.dataset.invoiceUrl = uploadedUrl;
                                       e.target.dataset.hasFile = 'true';
+                                      
                                       toast.success('✅ Payment evidence uploaded successfully!');
                                     } catch (error) {
                                       console.error('Failed to upload evidence:', error);
-                                      setError('Failed to upload evidence: ' + (error.response?.data?.detail || error.message));
+                                      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error occurred';
+                                      setError('Failed to upload evidence: ' + errorMsg);
+                                      toast.error('❌ Failed to upload evidence: ' + errorMsg);
                                       e.target.value = '';
+                                      // Clear dataset to prevent using invalid URL
+                                      delete e.target.dataset.invoiceUrl;
+                                      delete e.target.dataset.hasFile;
                                     } finally {
                                       setLoading(false);
                                     }
@@ -3500,7 +3518,9 @@ const Sales = () => {
                                       
                                       // Upload to Supabase storage
                                       setLoading(true);
+                                      setError('');
                                       try {
+                                        console.log('Uploading captured payment evidence...');
                                         const formData = new FormData();
                                         formData.append('invoice_file', file);
                                         formData.append('desired_name', `payment_evidence_${Date.now()}`);
@@ -3509,13 +3529,24 @@ const Sales = () => {
                                           headers: { 'Content-Type': 'multipart/form-data' }
                                         });
                                         
+                                        console.log('Camera upload response:', response);
+                                        
+                                        // Validate response has the expected data
+                                        if (!response.data || !response.data.invoice_file_url) {
+                                          throw new Error('Upload failed: No invoice URL returned from server');
+                                        }
+                                        
                                         const uploadedUrl = response.data.invoice_file_url;
+                                        console.log('Camera invoice uploaded successfully:', uploadedUrl);
+                                        
                                         const fileInput = document.getElementById(`evidence-file-${idx}`);
-                                        const dataTransfer = new DataTransfer();
-                                        dataTransfer.items.add(file);
-                                        fileInput.files = dataTransfer.files;
-                                        fileInput.dataset.invoiceUrl = uploadedUrl;
-                                        fileInput.dataset.hasFile = 'true';
+                                        if (fileInput) {
+                                          const dataTransfer = new DataTransfer();
+                                          dataTransfer.items.add(file);
+                                          fileInput.files = dataTransfer.files;
+                                          fileInput.dataset.invoiceUrl = uploadedUrl;
+                                          fileInput.dataset.hasFile = 'true';
+                                        }
                                         
                                         stream.getTracks().forEach(track => track.stop());
                                         document.body.removeChild(modal);
@@ -3523,7 +3554,9 @@ const Sales = () => {
                                         toast.success('✅ Payment evidence captured and uploaded successfully!');
                                       } catch (error) {
                                         console.error('Failed to upload evidence:', error);
-                                        toast.error('Failed to upload evidence: ' + (error.response?.data?.detail || error.message));
+                                        const errorMsg = error.response?.data?.detail || error.message || 'Unknown error occurred';
+                                        setError('Failed to upload evidence: ' + errorMsg);
+                                        toast.error('❌ Failed to upload evidence: ' + errorMsg);
                                         stream.getTracks().forEach(track => track.stop());
                                         document.body.removeChild(modal);
                                       } finally {
@@ -3531,7 +3564,7 @@ const Sales = () => {
                                       }
                                     }, 'image/jpeg', 0.9);
                                   };
-                             
+                                  
                                   
                                   document.getElementById(`capture-btn-${idx}`).onclick = () => {
                                     const canvas = document.createElement('canvas');
@@ -3586,20 +3619,28 @@ const Sales = () => {
                                 return;
                               }
                               
-                              // Get evidence file input
+                             // Get evidence file input
                               const evidenceFileInput = document.getElementById(`evidence-file-${idx}`);
                               const evidenceFile = evidenceFileInput?.files[0];
                               const invoiceUrl = evidenceFileInput?.dataset?.invoiceUrl;
                               
-                              if (!evidenceFile && !invoiceUrl) {
-                                toast.error('❌ You must upload or capture payment evidence before updating payment.');
+                              console.log('Payment update validation:', {
+                                hasFile: !!evidenceFile,
+                                hasUrl: !!invoiceUrl,
+                                invoiceUrl: invoiceUrl
+                              });
+                              
+                              // Validate that invoice was actually uploaded successfully
+                              if (!invoiceUrl || invoiceUrl === 'undefined' || invoiceUrl === 'null') {
+                                toast.error('❌ Payment evidence must be uploaded successfully before updating payment. Please upload or capture the invoice again.');
+                                setError('Invoice upload incomplete. Please upload payment evidence again.');
                                 return;
                               }
                               
                               setLoading(true);
                               setError('');
                               setSuccess('');
-                              
+                               
                               try {
                                 // Determine transaction type and record ID
                                 let transactionType = '';
@@ -3621,6 +3662,7 @@ const Sales = () => {
                                 }
                                 
                                 // Call the payment API with invoice URL
+                                / Call the payment API with invoice URL
                                 const paymentPayload = {
                                   transaction_type: transactionType,
                                   record_id: recordId,
@@ -3634,7 +3676,14 @@ const Sales = () => {
                                 console.log('Submitting payment for grouped transaction:', paymentPayload);
                                 console.log('Transaction has', tx.item_count || 1, 'items');
                                 
+                                console.log('Submitting payment update to API:', paymentPayload);
                                 const response = await api.post('/sales/payments', paymentPayload);
+                                console.log('Payment API response:', response);
+                                
+                                // Validate response
+                                if (!response.data) {
+                                  throw new Error('No response data received from payment API');
+                                }
                                 
                                 const newStatus = response.data?.new_status || 'unknown';
                                 const itemsUpdated = response.data?.items_updated || 1;
@@ -3654,10 +3703,36 @@ const Sales = () => {
                                 toast.success('Payment updated successfully!');
                                 
                                 // Refresh pending list to show updated data
+                                console.log('Payment update successful, reloading pending transactions...');
                                 await loadPending();
+                                console.log('Pending transactions reloaded successfully');
                               } catch (e) {
                                 console.error('Payment update failed:', e);
-                                toast.error('Failed to update payment: ' + (e.response?.data?.detail || e.message));
+                                console.error('Error details:', {
+                                  message: e.message,
+                                  response: e.response?.data,
+                                  status: e.response?.status
+                                });
+                                
+                                const errorMsg = e.response?.data?.detail || e.message || 'Unknown error occurred';
+                                
+                                // Provide specific error messages for common issues
+                                if (errorMsg.includes('Network Error') || errorMsg.includes('ERR_NETWORK')) {
+                                  setError('❌ Network error: Unable to connect to server. Please check your internet connection and try again.');
+                                  toast.error('Network error: Check your connection and try again');
+                                } else if (errorMsg.includes('timeout')) {
+                                  setError('❌ Request timeout: Server took too long to respond. Please try again.');
+                                  toast.error('Request timeout. Please try again.');
+                                } else if (e.response?.status === 401 || e.response?.status === 403) {
+                                  setError('❌ Authentication error: Please log in again.');
+                                  toast.error('Authentication error. Please log in again.');
+                                } else if (e.response?.status === 404) {
+                                  setError('❌ Transaction not found. It may have been deleted or updated.');
+                                  toast.error('Transaction not found');
+                                } else {
+                                  setError(`❌ Failed to update payment: ${errorMsg}`);
+                                  toast.error('Failed to update payment: ' + errorMsg);
+                                }
                               } finally {
                                 setLoading(false);
                               }

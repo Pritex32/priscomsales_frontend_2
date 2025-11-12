@@ -907,11 +907,11 @@ const Inventory = () => {
                           <th className="py-1 px-2">Closing</th>
                         </tr>
                       </thead>
-                      <tbody>
+                     <tbody>
                         {itemHistory.length === 0 && (
                           <tr><td colSpan="6" className="text-center py-2 text-gray-500">No recent activity</td></tr>
                         )}
-                        {itemHistory.slice(((historyPage || 1) - 1) * historyPageSize, (historyPage || 1) * historyPageSize).map((h, i) => (
+                        {itemHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize).map((h, i) => (
                           <tr key={i} className="border-b">
                             <td className="py-1 px-2">{h.log_date}</td>
                             <td className="py-1 px-2">{h.open_balance ?? 0}</td>

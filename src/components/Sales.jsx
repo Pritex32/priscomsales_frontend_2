@@ -276,9 +276,19 @@ const Sales = () => {
       console.log(`Found ${warehouses.length} warehouses:`, warehouses);
       
       setWarehouses(warehouses);
-      if (warehouses.length > 0) {
+      // Check if there's a saved warehouse in sessionStorage
+      const savedWarehouse = sessionStorage.getItem('selectedWarehouse');
+      console.log('Saved warehouse from session:', savedWarehouse);
+      
+      if (savedWarehouse && warehouses.includes(savedWarehouse)) {
+        // Use the saved warehouse if it's still valid
+        setSelectedWarehouse(savedWarehouse);
+        console.log('Restored warehouse from session:', savedWarehouse);
+      } else if (warehouses.length > 0) {
+        // Otherwise, auto-select the first warehouse and save it
         setSelectedWarehouse(warehouses[0]);
-        console.log('Auto-selected warehouse:', warehouses[0]);
+        sessionStorage.setItem('selectedWarehouse', warehouses[0]);
+        console.log('Auto-selected and saved warehouse:', warehouses[0]);
       } else {
         const errorMsg = 'No warehouses available. This usually means: 1) No inventory items exist, 2) User has no warehouse access, or 3) Database connection issue.';
         console.warn(errorMsg);
@@ -291,7 +301,6 @@ const Sales = () => {
       setError('Failed to load warehouses: ' + apiError);
     }
   };
-
   // Load inventory items when warehouse selected
   const loadInventoryItems = async () => {
     if (!selectedWarehouse) return;
@@ -1886,7 +1895,17 @@ const Sales = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Warehouse</label>
-              <select value={selectedWarehouse} onChange={e => setSelectedWarehouse(e.target.value)} className="border rounded px-3 py-2 w-full">
+              <select
+                value={selectedWarehouse}
+                onChange={e => {
+                  const newWarehouse = e.target.value;
+                  setSelectedWarehouse(newWarehouse);
+                  // Save to sessionStorage so it persists across sales
+                  sessionStorage.setItem('selectedWarehouse', newWarehouse);
+                  console.log('Warehouse changed and saved to session:', newWarehouse);
+                }}
+                className="border rounded px-3 py-2 w-full"
+              >
                 {warehouses.map(w => <option key={w} value={w}>{w}</option>)}
               </select>
             </div>
@@ -2659,7 +2678,17 @@ const Sales = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Warehouse</label>
-                <select value={selectedWarehouse} onChange={e => setSelectedWarehouse(e.target.value)} className="border rounded px-3 py-2 w-full">
+                <select
+                  value={selectedWarehouse}
+                  onChange={e => {
+                    const newWarehouse = e.target.value;
+                    setSelectedWarehouse(newWarehouse);
+                    // Save to sessionStorage so it persists across sales
+                    sessionStorage.setItem('selectedWarehouse', newWarehouse);
+                    console.log('Warehouse changed and saved to session:', newWarehouse);
+                  }}
+                  className="border rounded px-3 py-2 w-full"
+                >
                   {warehouses.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
               </div>

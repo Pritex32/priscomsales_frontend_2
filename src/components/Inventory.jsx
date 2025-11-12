@@ -122,7 +122,7 @@ const Inventory = () => {
   }, [tab, selectedDate]);
   
   //Re-fetch item history when date range changes
- / Re-fetch item history when date range changes
+ // Re-fetch item history when date range changes
   useEffect(() => {
     if (adjustItemId && showAdjustModal) {
       fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);

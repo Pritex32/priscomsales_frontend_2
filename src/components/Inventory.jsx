@@ -335,31 +335,39 @@ const Inventory = () => {
     try {
       if (!adjustItemId) {
         console.error('No item selected');
-        setError('Please select an item');
+        console.error('No item selected');
+        setError(errorMsg);
+        toast.error(errorMsg);
         setLoading(false);
         return;
       }
       
       if (!adjustDate) {
         console.error('No date selected');
-        setError('Item has no history. Please select an item with existing records.');
+        console.error('No date selected');
+        setError(errorMsg);
+        toast.error(errorMsg);
         setLoading(false);
         return;
       }
       
+      // Allow 0 as a valid value - only reject if truly empty/invalid
       if (adjustQty === '' || adjustQty === null || adjustQty === undefined) {
         console.error('Invalid quantity:', adjustQty);
-        setError('Please enter a quantity (0 or greater)');
+        toast.error('Please enter a quantity (0 or greater)');
         setLoading(false);
         return;
       }
+      
       const qtyNum = Number(adjustQty);
+      // Check if it's a valid number and >= 0 (allow 0)
       if (isNaN(qtyNum) || qtyNum < 0) {
         console.error('Invalid quantity:', adjustQty);
-        setError('Please enter a valid quantity (0 or greater)');
+        toast.error('Please enter a valid quantity (0 or greater)');
         setLoading(false);
         return;
       }
+      
       
       const payload = {
         log_date: adjustDate,

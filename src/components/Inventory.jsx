@@ -267,18 +267,36 @@ const Inventory = () => {
     
     
     
-   try {
-      // Build params object - only include dates if they are provided
-      const params = { page: 1 };
+    try {
+      // If no date range provided, use a very wide range to get all history
+      // Backend requires both start_date and end_date (not optional)
+      let start = startDate;
+      let end = endDate;
       
-      // Only add date filters if at least one date is provided
-      if (startDate || endDate) {
-        if (startDate) params.start_date = startDate;
-        if (endDate) params.end_date = endDate;
+      if (!start && !end) {
+        // No dates selected - fetch ALL history by using a very wide date range
+        // Start from 10 years ago to capture all historical data
+        const startDateObj = new Date(today);
+        startDateObj.setFullYear(startDateObj.getFullYear() - 10);
+        start = formatDate(startDateObj);
+        end = formatDate(today);
+      } else if (!start) {
+        // Only end date provided - start from 10 years ago
+        const startDateObj = new Date(today);
+        startDateObj.setFullYear(startDateObj.getFullYear() - 10);
+        start = formatDate(startDateObj);
+      } else if (!end) {
+        // Only start date provided - end at today
+        end = formatDate(today);
       }
-      // If no dates provided, fetch all history (no date filters)
       
-      const res = await api.get('/inventory/filter', { params });
+      const res = await api.get('/inventory/filter', {
+        params: {
+          start_date: start,
+          end_date: end,
+          page: 1,
+        },
+      });
       
       const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
       setItemHistory(filtered);

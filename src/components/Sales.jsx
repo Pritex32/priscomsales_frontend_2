@@ -3477,6 +3477,13 @@ const Sales = () => {
                             <button
                               type="button"
                               onClick={async () => {
+                                // Capture the current idx value in closure
+                                const currentIdx = idx;
+                                const fileInputId = `evidence-file-${currentIdx}`;
+                                
+                                console.log('=== CAMERA CAPTURE START ===');
+                                console.log('Transaction index:', currentIdx);
+                                console.log('File input ID:', fileInputId);
                                 try {
                                   const stream = await navigator.mediaDevices.getUserMedia({
                                     video: {
@@ -3524,49 +3531,99 @@ const Sales = () => {
                                         const formData = new FormData();
                                         formData.append('invoice_file', file);
                                         formData.append('desired_name', `payment_evidence_${Date.now()}`);
-                                        
+                                        console.log('Sending upload request to /sales/upload-invoice...');
                                         const response = await api.post('/sales/upload-invoice', formData, {
                                           headers: { 'Content-Type': 'multipart/form-data' }
                                         });
+                                        console.log('=== UPLOAD RESPONSE ===');
+                                        console.log('Status:', response.status);
+                                        console.log('Response data:', response.data);
                                         
                                         console.log('Camera upload response:', response);
                                         
                                         // Validate response has the expected data
-                                        if (!response.data || !response.data.invoice_file_url) {
-                                          throw new Error('Upload failed: No invoice URL returned from server');
+                                        // Validate response structure
+                                        if (!response.data) {
+                                          throw new Error('Upload failed: No response data from server');
                                         }
                                         
-                                        const uploadedUrl = response.data.invoice_file_url;
-                                        console.log('Camera invoice uploaded successfully:', uploadedUrl);
-                                        
-                                        const fileInput = document.getElementById(`evidence-file-${idx}`);
-                                        if (fileInput) {
-                                          const dataTransfer = new DataTransfer();
-                                          dataTransfer.items.add(file);
-                                          fileInput.files = dataTransfer.files;
-                                          
-                                          // Set dataset properties AFTER file is set
-                                          fileInput.dataset.invoiceUrl = uploadedUrl;
-                                          fileInput.dataset.hasFile = 'true';
-                                          fileInput.dataset.uploadComplete = 'true';
-                                          
-                                          console.log('Dataset set on file input:', {
-                                            invoiceUrl: fileInput.dataset.invoiceUrl,
-                                            hasFile: fileInput.dataset.hasFile,
-                                            uploadComplete: fileInput.dataset.uploadComplete
-                                          });
-                                        } else {
-                                          console.error('ERROR: Could not find file input element evidence-file-' + idx);
+                                        if (!response.data.invoice_file_url) {
+                                          console.error('ERROR: Response missing invoice_file_url:', response.data);
+                                          throw new Error('Upload failed: No invoice URL in response');
                                         }
+                                        
+                                        const publicUrl = response.data.invoice_file_url;
+                                        console.log('✅ Upload complete, public URL:', publicUrl);
+                                        
+                                        // CRITICAL: Find and update the file input element
+                                        console.log('=== UPDATING FILE INPUT ===');
+                                        console.log('Looking for element ID:', fileInputId);
+                                        
+                                        const evidenceFileInput = document.getElementById(fileInputId);
+                                        
+                                        if (!evidenceFileInput) {
+                                          console.error('❌ CRITICAL: File input not found!');
+                                          console.error('Searched for ID:', fileInputId);
+                                          console.error('All evidence-file elements:',
+                                            Array.from(document.querySelectorAll('[id^="evidence-file-"]')).map(el => ({
+                                              id: el.id,
+                                              hasDataset: !!el.dataset
+                                            }))
+                                          );
+                                          throw new Error('Cannot find file input element. Please try uploading via file selector instead.');
+                                        }
+                                        
+                                        console.log('✅ File input found:', evidenceFileInput.id);
+                                        
+                                        // Set the file on the input
+                                        const dataTransfer = new DataTransfer();
+                                        dataTransfer.items.add(file);
+                                        evidenceFileInput.files = dataTransfer.files;
+                                        console.log('File set on input, files.length:', evidenceFileInput.files.length);
+                                        
+                                        // CRITICAL: Set dataset attributes for validation
+                                        evidenceFileInput.dataset.uploadComplete = 'true';
+                                        evidenceFileInput.dataset.invoiceUrl = publicUrl;
+                                        evidenceFileInput.dataset.hasFile = 'true';
+                                        
+                                        console.log('=== DATASET SET ===');
+                                        console.log('uploadComplete:', evidenceFileInput.dataset.uploadComplete);
+                                        console.log('invoiceUrl:', evidenceFileInput.dataset.invoiceUrl);
+                                        console.log('hasFile:', evidenceFileInput.dataset.hasFile);
+                                        
+                                        // Verify dataset was set correctly
+                                        const verify = {
+                                          uploadComplete: evidenceFileInput.dataset.uploadComplete,
+                                          invoiceUrl: evidenceFileInput.dataset.invoiceUrl,
+                                          hasFile: evidenceFileInput.dataset.hasFile
+                                        };
+                                        
+                                        console.log('Verification:', verify);
+                                        
+                                        if (verify.uploadComplete !== 'true' || !verify.invoiceUrl) {
+                                          console.error('❌ Dataset verification failed!', verify);
+                                          throw new Error('Failed to store upload information');
+                                        }
+                                        
+                                        console.log('✅ All validations passed - payment evidence ready');
+                                        
+                                        // Close modal and cleanup
                                         stream.getTracks().forEach(track => track.stop());
                                         document.body.removeChild(modal);
                                         
-                                        toast.success('✅ Payment evidence captured and uploaded successfully!');
+                                        toast.success('✅ Payment evidence captured successfully!');
+                                        console.log('=== CAMERA CAPTURE COMPLETE ===');
+                                        
                                       } catch (error) {
-                                        console.error('Failed to upload evidence:', error);
+                                        console.error('=== UPLOAD ERROR ===');
+                                        console.error('Error type:', error.name);
+                                        console.error('Error message:', error.message);
+                                        console.error('Full error:', error);
+                                        
                                         const errorMsg = error.response?.data?.detail || error.message || 'Unknown error occurred';
                                         setError('Failed to upload evidence: ' + errorMsg);
                                         toast.error('❌ Failed to upload evidence: ' + errorMsg);
+                                        
                                         stream.getTracks().forEach(track => track.stop());
                                         document.body.removeChild(modal);
                                       } finally {

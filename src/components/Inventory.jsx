@@ -789,7 +789,7 @@ const Inventory = () => {
                     } else {
                       setFilteredItemsMap(itemsMap); // Reset to all items
                     }
-                  }} 
+                  }}
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">All warehouses</option>
@@ -802,11 +802,12 @@ const Inventory = () => {
                 <label className="block text-sm text-gray-600 mb-1">Select item</label>
                 <select
                   value={adjustItemId}
-                  onChange={async (e) => {
+                  onChange={(e) => {
+                    e.preventDefault();
                     const itemId = e.target.value;
                     setAdjustItemId(itemId);
                     if (itemId) {
-                      await fetchItemHistory(itemId, adjustStartDate || null, adjustEndDate || null);
+                      fetchItemHistory(itemId, adjustStartDate || null, adjustEndDate || null);
                     } else {
                       setItemHistory([]);
                       setAvailableDates([]);
@@ -822,7 +823,6 @@ const Inventory = () => {
                   ))}
                 </select>
               </div>
-
 
               {/* Date Selection - Only show if item has history */}
               {adjustItemId && (

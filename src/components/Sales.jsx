@@ -3662,7 +3662,7 @@ const Sales = () => {
                                 }
                                 
                                 // Call the payment API with invoice URL
-                                / Call the payment API with invoice URL
+                                // Call the payment API with invoice URL
                                 const paymentPayload = {
                                   transaction_type: transactionType,
                                   record_id: recordId,

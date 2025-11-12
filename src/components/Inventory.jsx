@@ -123,14 +123,7 @@ const Inventory = () => {
     return () => clearInterval(id);
   }, [tab, selectedDate]);
   
-  //Re-fetch item history when date range changes
- // Re-fetch item history when date range changes
-  useEffect(() => {
-    if (adjustItemId && showAdjustModal) {
-      fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);
-    }
-  }, [adjustStartDate, adjustEndDate, adjustItemId, showAdjustModal, fetchItemHistory]);
-
+ 
 
 
 
@@ -320,6 +313,13 @@ const Inventory = () => {
       setCurrentRecord(null);
     }
    }, [today, adjustStartDate, adjustEndDate]);
+   
+ // Re-fetch item history when date range changes
+  useEffect(() => {
+    if (adjustItemId && showAdjustModal) {
+      fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);
+    }
+  }, [adjustStartDate, adjustEndDate, adjustItemId, showAdjustModal, fetchItemHistory]);
 
   const handleManualAdjustment = async () => {
     setAdjustMsg(''); 

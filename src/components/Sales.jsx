@@ -1498,15 +1498,18 @@ const Sales = () => {
       return;
     }
     
-    setLoading(true); setError(''); setSuccess('');
+    setLoading(true); 
+    setError('');
+    setSuccess('');
     try {
       console.log('Sending DELETE request to /sales/' + saleId);
       const response = await api.delete(`/sales/${saleId}`);
       console.log('Delete response:', response);
+      console.log('Delete response data:', response.data);
       
       const successMsg = `Sale #${saleId} deleted successfully!`;
       setSuccess(successMsg);
-      toast.success(successMsg);
+      toast.success(successMsg, { autoClose: 3000 });
       
       // Refresh the list
       console.log('Refreshing list after delete, current tab:', tab);
@@ -3747,7 +3750,7 @@ const Sales = () => {
                                   payment_method: paymentMethod || 'cash',
                                   notes: `${updateType === 'full' ? 'Full' : 'Partial'} payment via dashboard${tx.item_count > 1 ? ` (${tx.item_count} items)` : ''}`,
                                   transaction_date: transactionDate,
-                                  invoice_file_url: invoiceUrl || null
+                                  invoice_file_url: invoiceUrl ? [invoiceUrl] : null  // Backend expects array of strings
                                 };
                                 
                                 console.log('Submitting payment for grouped transaction:', paymentPayload);

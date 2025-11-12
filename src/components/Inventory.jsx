@@ -267,23 +267,18 @@ const Inventory = () => {
     
     
     
-    try {
-      // Use provided date range or default to last 30 days
-      const end = endDate || formatDate(today);
-      let start = startDate;
-      if (!start) {
-        const startDateObj = new Date(today);
-        startDateObj.setDate(startDateObj.getDate() - 30);
-        start = formatDate(startDateObj);
-      }
+   try {
+      // Build params object - only include dates if they are provided
+      const params = { page: 1 };
       
-      const res = await api.get('/inventory/filter', {
-        params: {
-          start_date: start,
-          end_date: end,
-          page: 1,
-        },
-      });
+      // Only add date filters if at least one date is provided
+      if (startDate || endDate) {
+        if (startDate) params.start_date = startDate;
+        if (endDate) params.end_date = endDate;
+      }
+      // If no dates provided, fetch all history (no date filters)
+      
+      const res = await api.get('/inventory/filter', { params });
       
       const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
       setItemHistory(filtered);

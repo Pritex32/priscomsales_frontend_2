@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import ManageEmployeeAccess from '../pages/ManageEmployeeAccess';
 import Tooltip from './Tooltip';
+import { toast } from 'react-toastify';
 
 const TabButton = ({ active, onClick, children }) => (
   <button onClick={onClick} className={`px-4 py-2 rounded-md text-sm font-medium ${
@@ -68,15 +69,15 @@ const Settings = () => {
         bank_name: bankName || null,
         account_name: accountName || null,
       });
-      setSuccess('Company details updated successfully!');
+      toast.success('Company details updated successfully!');
     } catch (e) {
-      setError('Failed to update company details: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to update company details: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
   const uploadLogo = async () => {
     if (!logoFile) {
-      setError('Please select a logo file');
+      toast.error('Please select a logo file');
       return;
     }
     setLoading(true); setError(''); setSuccess('');
@@ -86,10 +87,10 @@ const Settings = () => {
       await api.post('/sales/company/logo', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setSuccess('Logo uploaded successfully!');
+      toast.success('Logo uploaded successfully!');
       setLogoFile(null);
     } catch (e) {
-      setError('Failed to upload logo: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to upload logo: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -99,36 +100,36 @@ const Settings = () => {
     try {
       const res = await api.put('/settings/access-code/generate');
       setAccessCode(res.data.access_code);
-      setSuccess(`New access code generated: ${res.data.access_code}`);
+      toast.success(`New access code generated: ${res.data.access_code}`);
     } catch (e) {
-      setError('Failed to generate access code: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to generate access code: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
   const setAccessCodeCustom = async () => {
     if (!customAccessCode.trim()) {
-      setError('Please enter an access code');
+      toast.error('Please enter an access code');
       return;
     }
     setLoading(true); setError(''); setSuccess('');
     try {
       await api.put('/settings/access-code', { code: customAccessCode });
-      setSuccess('Access code updated successfully!');
+      toast.success('Access code updated successfully!');
       setAccessCode(customAccessCode);
       setCustomAccessCode('');
     } catch (e) {
-      setError('Failed to set access code: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to set access code: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
   // Password Change Functions
   const changePassword = async () => {
     if (!pwdEmail.trim() || !pwdAccessCode.trim() || !newPassword.trim()) {
-      setError('All fields are required');
+      toast.error('All fields are required');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
     setLoading(true); setError(''); setSuccess('');
@@ -138,13 +139,13 @@ const Settings = () => {
         access_code: pwdAccessCode,
         new_password: newPassword,
       });
-      setSuccess('Password changed successfully!');
+      toast.success('Password changed successfully!');
       setPwdEmail('');
       setPwdAccessCode('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (e) {
-      setError('Failed to change password: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to change password: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -155,7 +156,7 @@ const Settings = () => {
       const res = await api.get('/settings/inventory-officers');
       setOfficers(res.data || []);
     } catch (e) {
-      setError('Failed to load officers: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to load officers: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -163,7 +164,7 @@ const Settings = () => {
 
   const addOfficer = async () => {
     if (!newOfficerName.trim() || !newOfficerEmail.trim()) {
-      setError('Officer name and email are required');
+      toast.error('Officer name and email are required');
       return;
     }
     setLoading(true); setError(''); setSuccess('');
@@ -177,7 +178,7 @@ const Settings = () => {
       setNewOfficerEmail('');
       loadOfficers();
     } catch (e) {
-      setError('Failed to add officer: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to add officer: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -188,13 +189,13 @@ const Settings = () => {
         officer_name: editOfficerName || null,
         officer_email: editOfficerEmail || null,
       });
-      setSuccess('Officer updated successfully!');
+      toast.success('Officer updated successfully!');
       setEditingOfficerId(null);
       setEditOfficerName('');
       setEditOfficerEmail('');
       loadOfficers();
     } catch (e) {
-      setError('Failed to update officer: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to update officer: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -203,10 +204,10 @@ const Settings = () => {
     setLoading(true); setError(''); setSuccess('');
     try {
       await api.delete(`/settings/inventory-officers/${officerId}`);
-      setSuccess('Officer deleted successfully!');
+      toast.success('Officer deleted successfully!');
       loadOfficers();
     } catch (e) {
-      setError('Failed to delete officer: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to delete officer: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 
@@ -351,12 +352,12 @@ const Settings = () => {
     setError(''); setSuccess('');
     
     if (!monoAccessCode.trim()) {
-      setError('Please enter your access code');
+      toast.error('Please enter your access code');
       return;
     }
 
     if (!MONO_PUBLIC_KEY) {
-      setError('Mono public key is not configured. Please contact support.');
+      toast.error('Mono public key is not configured. Please contact support.');
       return;
     }
 
@@ -366,7 +367,7 @@ const Settings = () => {
       // Ensure Mono script is loaded
       const ok = await ensureMonoScript();
       if (!ok || !window.MonoConnect) {
-        setError('Failed to load Mono Connect. Please check your internet connection and try again. If the problem persists, try refreshing the page.');
+        toast.error('Failed to load Mono Connect. Please check your internet connection and try again. If the problem persists, try refreshing the page.');
         setMonoLoading(false);
         return;
       }
@@ -386,13 +387,13 @@ const Settings = () => {
           api.post('/settings/mono/link', { code: code, access_code: monoAccessCode })
             .then(function(resp) {
               console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
-              setSuccess(resp.data?.msg || 'Account successfully linked and secured with your access code.');
+              toast.success(resp.data?.msg || 'Account successfully linked and secured with your access code.');
               setMonoAccessCode('');
               return loadLinkedAccounts();
             })
             .catch(function(e) {
               console.error('DEBUG: /settings/mono/link error:', e?.response?.status, e?.response?.data || e?.message);
-              setError(e.response?.data?.detail || 'Failed to link account. Please try again.');
+              toast.error(e.response?.data?.detail || 'Failed to link account. Please try again.');
             })
             .finally(function() {
               setMonoLoading(false);
@@ -405,8 +406,17 @@ const Settings = () => {
       console.log('DEBUG: Mono widget opened');
     } catch (e) {
       console.error('DEBUG: Mono Connect initialization error:', e);
-      setError(e.message || 'Mono Connect failed to initialize. Please try again.');
+      toast.error(e.message || 'Mono Connect failed to initialize. Please try again.');
       setMonoLoading(false);
+    }
+  
+  const loadLinkedAccounts = async () => {
+    try {
+      const res = await api.get('/settings/linked-accounts');
+      setLinkedAccounts(res.data || []);
+    } catch (e) {
+      console.log('Failed to load linked accounts:', e.response?.data?.detail || e.message);
+      setLinkedAccounts([]);
     }
   };
 
@@ -415,17 +425,17 @@ const Settings = () => {
     try {
       setMonoLoading(true);
       await api.delete(`/settings/linked-accounts/${accountId}`);
-      setSuccess('Account disconnected');
+      toast.success('Account disconnected');
       await loadLinkedAccounts();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to disconnect');
+      toast.error(e.response?.data?.detail || 'Failed to disconnect');
     } finally { setMonoLoading(false); }
   };
 
   // Delete Account Function
   const deleteAccount = async () => {
     if (!deleteEmail.trim() || !deletePassword.trim()) {
-      setError('Email and password are required');
+      toast.error('Email and password are required');
       return;
     }
     if (!window.confirm(`Are you sure you want to delete this ${deleteAccountType} account? This action cannot be undone.`)) {
@@ -439,12 +449,12 @@ const Settings = () => {
         password: deletePassword,
         name_value: deleteNameValue || null,
       });
-      setSuccess('Account deleted successfully!');
+      toast.success('Account deleted successfully!');
       setDeleteEmail('');
       setDeletePassword('');
       setDeleteNameValue('');
     } catch (e) {
-      setError('Failed to delete account: ' + (e.response?.data?.detail || e.message));
+      toast.error('Failed to delete account: ' + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
   };
 

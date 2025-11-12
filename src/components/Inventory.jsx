@@ -290,13 +290,33 @@ const Inventory = () => {
         end = formatDate(today);
       }
       
-      const res = await api.get('/inventory/filter', {
-        params: {
-          start_date: start,
-          end_date: end,
-          page: 1,
-        },
-      });
+      // Fetch ALL pages to get complete history for the item
+      let allData = [];
+      let page = 1;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const res = await api.get('/inventory/filter', {
+          params: {
+            start_date: start,
+            end_date: end,
+            page: page,
+          },
+        });
+        
+        const pageData = res.data || [];
+        if (pageData.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(pageData);
+          // Backend returns 20 items per page, if less than 20, we've reached the end
+          if (pageData.length < 20) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
       
       const filtered = (res.data || []).filter(r => r.item_id === Number(itemId));
       setItemHistory(filtered);

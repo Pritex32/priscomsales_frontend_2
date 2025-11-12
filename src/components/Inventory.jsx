@@ -79,7 +79,9 @@ const Inventory = () => {
   // Date range filters for edit inventory
   const [adjustStartDate, setAdjustStartDate] = useState('');
   const [adjustEndDate, setAdjustEndDate] = useState('');
-
+// Pagination for history table in modal
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyPageSize = 5;
 
   const refreshHomeData = React.useCallback(async () => {
     setLoading(true); setError('');
@@ -127,7 +129,7 @@ const Inventory = () => {
     if (adjustItemId && showAdjustModal) {
       fetchItemHistory(adjustItemId, adjustStartDate || null, adjustEndDate || null);
     }
-  }, [adjustStartDate, adjustEndDate, adjustItemId, showAdjustModal]);
+  }, [adjustStartDate, adjustEndDate, adjustItemId, showAdjustModal, fetchItemHistory]);
 
 
 
@@ -260,7 +262,7 @@ const Inventory = () => {
     } finally { setLoading(false); }
   };
 
-   const fetchItemHistory = async (itemId, startDate = null, endDate = null) => {
+   const fetchItemHistory = React.useCallback(async (itemId, startDate = null, endDate = null) => {
     if (!itemId) {
       setItemHistory([]);
       setAvailableDates([]);
@@ -269,6 +271,7 @@ const Inventory = () => {
       setHistoryPage(1);
       return;
     }
+    
     
     
     try {
@@ -316,7 +319,7 @@ const Inventory = () => {
       setAdjustDate('');
       setCurrentRecord(null);
     }
-  };
+   }, [today, adjustStartDate, adjustEndDate]);
 
   const handleManualAdjustment = async () => {
     setAdjustMsg(''); 

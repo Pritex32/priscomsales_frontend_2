@@ -3687,44 +3687,37 @@ const Sales = () => {
                               }
                               
                              // Get evidence file input
-                              // Get evidence file input
                               const evidenceFileInput = document.getElementById(`evidence-file-${idx}`);
                               const evidenceFile = evidenceFileInput?.files[0];
                               const invoiceUrl = evidenceFileInput?.dataset?.invoiceUrl;
                               const uploadComplete = evidenceFileInput?.dataset?.uploadComplete;
+                              const hasFile = evidenceFileInput?.dataset?.hasFile;
                               
                               console.log('Payment update validation:', {
-                                hasFile: !!evidenceFile,
+                                hasFile: hasFile,
                                 hasUrl: !!invoiceUrl,
                                 uploadComplete: uploadComplete,
                                 invoiceUrl: invoiceUrl
                               });
                               
-                              
                               // Validate that invoice was actually uploaded successfully
-                               if (!evidenceFile) {
+                              if (!evidenceFile || hasFile !== 'true') {
                                 toast.error('❌ Please select a payment evidence file first.');
                                 setError('Payment evidence file is required. Please upload or capture the invoice.');
                                 return;
                               }
                               
-                              if (!uploadComplete || uploadComplete !== 'true') {
-                                toast.error('❌ Payment evidence upload is still in progress. Please wait for upload to complete.');
-                                setError('Upload in progress. Please wait for the success message before updating payment.');
+                              // Check if invoice URL exists and is valid
+                              if (!invoiceUrl || invoiceUrl === 'undefined' || invoiceUrl === 'null' || invoiceUrl.trim() === '') {
+                                toast.error('❌ Payment evidence upload is still in progress or failed. Please wait for upload to complete or try again.');
+                                setError('Upload incomplete. Please wait for the success message before updating payment, or try uploading again.');
                                 return;
                               }
-                              
-                              if (!invoiceUrl || invoiceUrl === 'undefined' || invoiceUrl === 'null') {
-                                toast.error('❌ Payment evidence upload failed. Please try uploading again.');
-                                setError('Invoice upload incomplete. Please upload payment evidence again.');
-                                return;
-                              }
-                              
                               
                               setLoading(true);
                               setError('');
                               setSuccess('');
-                               
+                                
                               try {
                                 // Determine transaction type and record ID
                                 let transactionType = '';

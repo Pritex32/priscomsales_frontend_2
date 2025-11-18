@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { 
-  Package, 
-  Building2, 
-  Users, 
-  AlertTriangle, 
-  ArrowRightLeft, 
-  ShoppingCart, 
+import {
+  Package,
+  Building2,
+  Users,
+  AlertTriangle,
+  ArrowRightLeft,
+  ShoppingCart,
   Trash2,
   CheckCircle,
   XCircle,
   Download,
   Filter,
   Calendar,
-  Search
+  Search,
+  Plus,
+  X,
+  CheckSquare
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Tooltip from './Tooltip';
@@ -27,15 +30,15 @@ const B2BStockMovement = () => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(false);
   
+  // Multiple items state
+  const [selectedItems, setSelectedItems] = useState([]); // Array of {item_id, item_name, item_name_to, quantity, stock}
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  
   // Warehouse Transfer state
   const [wtForm, setWtForm] = useState({
     source_warehouse: '',
     destination_warehouse: '',
-    source_item_id: null,
-    source_item_name: '',
-    destination_item_id: null,
-    destination_item_name: '',
-    quantity: 1,
     issued_by: '',
     received_by: '',
     notes: '',
@@ -45,9 +48,6 @@ const B2BStockMovement = () => {
   // Customer Sale state
   const [csForm, setCsForm] = useState({
     source_warehouse: '',
-    item_id: null,
-    item_name: '',
-    quantity: 1,
     issued_by: '',
     customer_name: '',
     notes: '',
@@ -57,9 +57,6 @@ const B2BStockMovement = () => {
   // Stockout state
   const [soForm, setSoForm] = useState({
     source_warehouse: '',
-    item_id: null,
-    item_name: '',
-    quantity: 1,
     issued_by: '',
     notes: '',
     movement_date: new Date().toISOString().split('T')[0]
@@ -268,9 +265,9 @@ const B2BStockMovement = () => {
   const handleWarehouseTransfer = async (e) => {
     e.preventDefault();
     
-    if (!wtForm.source_warehouse || !wtForm.destination_warehouse || !wtForm.source_item_id || 
-        wtForm.quantity <= 0 || !wtForm.issued_by || !wtForm.received_by) {
-      toast.error('Please fill all required fields');
+    if (!wtForm.source_warehouse || !wtForm.destination_warehouse || selectedItems.length === 0 ||
+        !wtForm.issued_by || !wtForm.received_by) {
+      toast.error('Please fill all required fields and select at least one item');
       return;
     }
     
@@ -278,41 +275,34 @@ const B2BStockMovement = () => {
       toast.error('Source and destination warehouses must be different');
       return;
     }
-
-    // Use source item as destination item if not specified
-    const destItemId = wtForm.destination_item_id || wtForm.source_item_id;
-    const destItemName = wtForm.destination_item_name || wtForm.source_item_name;
     
     setLoading(true);
     try {
+      const items = selectedItems.map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        item_name_to: item.item_name_to || item.item_name,
+        quantity: item.quantity
+      }));
+      
       await api.post('/b2b/transfer/warehouse', {
         transfer_type: 'warehouse_transfer',
         source_warehouse: wtForm.source_warehouse,
         destination_warehouse: wtForm.destination_warehouse,
-        item_id: wtForm.source_item_id,
-        item_name: wtForm.source_item_name,
-        item_name_to: destItemName,
-        quantity: wtForm.quantity,
+        items: items,
         issued_by: wtForm.issued_by,
         received_by: wtForm.received_by,
         notes: wtForm.notes,
         movement_date: wtForm.movement_date
       });
-      toast.success(`Transferred ${wtForm.quantity} units of ${wtForm.source_item_name} → ${destItemName}`);
+      
+      const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+      toast.success(`Transferred ${items.length} item(s) (${totalQty} total units)`);
       loadMovements();
-      // Reload inventory after transfer
       loadSourceInventoryItems(wtForm.source_warehouse);
       loadDestinationInventoryItems(wtForm.destination_warehouse);
-      // Reset form partially
-      setWtForm({
-        ...wtForm,
-        source_item_id: null,
-        source_item_name: '',
-        destination_item_id: null,
-        destination_item_name: '',
-        quantity: 1,
-        notes: ''
-      });
+      setSelectedItems([]);
+      setSearchTerm('');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Transfer failed');
     } finally {
@@ -323,23 +313,37 @@ const B2BStockMovement = () => {
   const handleCustomerSale = async (e) => {
     e.preventDefault();
     
-    if (!csForm.source_warehouse || !csForm.item_id || csForm.quantity <= 0 || !csForm.issued_by) {
-      toast.error('Please fill all required fields');
+    if (!csForm.source_warehouse || selectedItems.length === 0 || !csForm.issued_by) {
+      toast.error('Please fill all required fields and select at least one item');
       return;
     }
     
     setLoading(true);
     try {
+      const items = selectedItems.map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        quantity: item.quantity
+      }));
+      
       await api.post('/b2b/transfer/customer', {
         transfer_type: 'customer_sale',
-        ...csForm
+        source_warehouse: csForm.source_warehouse,
+        items: items,
+        issued_by: csForm.issued_by,
+        customer_name: csForm.customer_name,
+        notes: csForm.notes,
+        movement_date: csForm.movement_date
       });
-      toast.success(`Sold ${csForm.quantity} units successfully`);
+      
+      const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+      toast.success(`Sold ${items.length} item(s) (${totalQty} total units)`);
       loadMovements();
-      // Reset form
+      loadInventoryItems(csForm.source_warehouse);
+      setSelectedItems([]);
+      setSearchTerm('');
       setCsForm({
         ...csForm,
-        quantity: 1,
         customer_name: '',
         notes: ''
       });
@@ -353,24 +357,37 @@ const B2BStockMovement = () => {
   const handleStockout = async (e) => {
     e.preventDefault();
     
-    if (!soForm.source_warehouse || !soForm.item_id || soForm.quantity <= 0 || 
+    if (!soForm.source_warehouse || selectedItems.length === 0 ||
         !soForm.issued_by || !soForm.notes || soForm.notes.length < 5) {
-      toast.error('Please fill all required fields (notes must be at least 5 characters)');
+      toast.error('Please fill all required fields and select at least one item (notes must be at least 5 characters)');
       return;
     }
     
     setLoading(true);
     try {
+      const items = selectedItems.map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        quantity: item.quantity
+      }));
+      
       await api.post('/b2b/transfer/stockout', {
         transfer_type: 'stockout',
-        ...soForm
+        source_warehouse: soForm.source_warehouse,
+        items: items,
+        issued_by: soForm.issued_by,
+        notes: soForm.notes,
+        movement_date: soForm.movement_date
       });
-      toast.success(`Written off ${soForm.quantity} units`);
+      
+      const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+      toast.success(`Written off ${items.length} item(s) (${totalQty} total units)`);
       loadMovements();
-      // Reset form
+      loadInventoryItems(soForm.source_warehouse);
+      setSelectedItems([]);
+      setSearchTerm('');
       setSoForm({
         ...soForm,
-        quantity: 1,
         notes: ''
       });
     } catch (error) {
@@ -383,9 +400,9 @@ const B2BStockMovement = () => {
   const handleExportCSV = async () => {
     try {
       const params = filters.transfer_type ? { transfer_type: filters.transfer_type } : {};
-      const res = await api.get('/b2b/movements/export', { 
+      const res = await api.get('/b2b/movements/export', {
         params,
-        responseType: 'blob' 
+        responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
@@ -400,20 +417,73 @@ const B2BStockMovement = () => {
     }
   };
 
-  const handleSourceItemSelect = (item) => {
-    setWtForm(prev => ({ ...prev, source_item_id: item.item_id, source_item_name: item.item_name }));
-  };
-
-  const handleDestinationItemSelect = (item) => {
-    setWtForm(prev => ({ ...prev, destination_item_id: item.item_id, destination_item_name: item.item_name }));
-  };
-
-  const handleItemSelect = (item) => {
-    if (activeTab === 'customer_sale') {
-      setCsForm(prev => ({ ...prev, item_id: item.item_id, item_name: item.item_name }));
-    } else if (activeTab === 'stockout') {
-      setSoForm(prev => ({ ...prev, item_id: item.item_id, item_name: item.item_name }));
+  // Helper functions for multiple item selection
+  const handleAddItem = (item) => {
+    // Check if item already selected
+    if (selectedItems.find(i => i.item_id === item.item_id)) {
+      toast.warning('Item already added');
+      return;
     }
+    
+    setSelectedItems(prev => [...prev, {
+      item_id: item.item_id,
+      item_name: item.item_name,
+      item_name_to: item.item_name, // Default to same name
+      quantity: 1,
+      stock: item.closing_balance
+    }]);
+    setSearchTerm('');
+    setShowDropdown(false);
+    toast.success(`Added ${item.item_name}`);
+  };
+
+  const handleRemoveItem = (itemId) => {
+    setSelectedItems(prev => prev.filter(item => item.item_id !== itemId));
+  };
+
+  const handleUpdateItemQuantity = (itemId, quantity) => {
+    setSelectedItems(prev => prev.map(item =>
+      item.item_id === itemId ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
+    ));
+  };
+
+  const handleUpdateItemNameTo = (itemId, nameTo) => {
+    setSelectedItems(prev => prev.map(item =>
+      item.item_id === itemId ? { ...item, item_name_to: nameTo } : item
+    ));
+  };
+
+  const handleSelectAll = () => {
+    const items = activeTab === 'warehouse_transfer' ? sourceInventoryItems : inventoryItems;
+    const newItems = items.filter(item => !selectedItems.find(si => si.item_id === item.item_id))
+      .map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        item_name_to: item.item_name,
+        quantity: 1,
+        stock: item.closing_balance
+      }));
+    
+    if (newItems.length > 0) {
+      setSelectedItems(prev => [...prev, ...newItems]);
+      toast.success(`Added ${newItems.length} item(s)`);
+    } else {
+      toast.info('All items already selected');
+    }
+  };
+
+  const handleClearAll = () => {
+    setSelectedItems([]);
+    toast.info('Cleared all items');
+  };
+
+  // Filter items based on search term
+  const getFilteredItems = () => {
+    const items = activeTab === 'warehouse_transfer' ? sourceInventoryItems : inventoryItems;
+    if (!searchTerm) return items;
+    return items.filter(item =>
+      item.item_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   };
 
   const getTransferTypeColor = (type) => {
@@ -584,100 +654,6 @@ const B2BStockMovement = () => {
                   )}
                 </div>
 
-                {/* Source Item */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    Source Item (Stocking Out) * {loadingSourceItems && <span className="text-xs text-gray-500">(Loading...)</span>}
-                    <Tooltip text="Item to transfer from source warehouse" />
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <select
-                      value={wtForm.source_item_id || ''}
-                      onChange={(e) => {
-                        const item = sourceInventoryItems.find(i => i.item_id === parseInt(e.target.value));
-                        if (item) handleSourceItemSelect(item);
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      disabled={loadingSourceItems || sourceInventoryItems.length === 0}
-                    >
-                      <option value="">
-                        {loadingSourceItems ? 'Loading items...' : 
-                         sourceInventoryItems.length === 0 ? `No items in ${wtForm.source_warehouse}` : 
-                         'Select source item'}
-                      </option>
-                      {sourceInventoryItems.map(item => (
-                        <option key={item.item_id} value={item.item_id}>
-                          {item.item_name} (Stock: {item.closing_balance})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {!loadingSourceItems && sourceInventoryItems.length === 0 && wtForm.source_warehouse && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      No items available in {wtForm.source_warehouse}. Please add inventory first.
-                    </p>
-                  )}
-                </div>
-
-                {/* Destination Item */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    Destination Item (Supplying To) {loadingDestItems && <span className="text-xs text-gray-500">(Loading...)</span>}
-                    <Tooltip text="Optional: Map to a different item name in destination warehouse" />
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <select
-                      value={wtForm.destination_item_id || ''}
-                      onChange={(e) => {
-                        if (e.target.value === '') {
-                          // Use source item as destination
-                          setWtForm(prev => ({ 
-                            ...prev, 
-                            destination_item_id: null, 
-                            destination_item_name: '' 
-                          }));
-                        } else {
-                          const item = destinationInventoryItems.find(i => i.item_id === parseInt(e.target.value));
-                          if (item) handleDestinationItemSelect(item);
-                        }
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={loadingDestItems}
-                    >
-                      <option value="">
-                        {loadingDestItems ? 'Loading items...' : 
-                         destinationInventoryItems.length === 0 ? `No existing items in ${wtForm.destination_warehouse}` : 
-                         'Same as source item (or select different)'}
-                      </option>
-                      {destinationInventoryItems.map(item => (
-                        <option key={item.item_id} value={item.item_id}>
-                          {item.item_name} (Stock: {item.closing_balance})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Optional: Leave empty to transfer to same item name, or select to rename/transform item
-                  </p>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={wtForm.quantity}
-                    onChange={(e) => setWtForm({ ...wtForm, quantity: parseInt(e.target.value) || 1 })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
 
                 {/* Issued By */}
                 <div>
@@ -785,46 +761,6 @@ const B2BStockMovement = () => {
                   </div>
                 </div>
 
-                {/* Item */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Item *
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <select
-                      value={csForm.item_id || ''}
-                      onChange={(e) => {
-                        const item = inventoryItems.find(i => i.item_id === parseInt(e.target.value));
-                        if (item) handleItemSelect(item);
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select item</option>
-                      {inventoryItems.map(item => (
-                        <option key={item.item_id} value={item.item_id}>
-                          {item.item_name} (Stock: {item.closing_balance})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={csForm.quantity}
-                    onChange={(e) => setCsForm({ ...csForm, quantity: parseInt(e.target.value) || 1 })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
 
                 {/* Issued By */}
                 <div>
@@ -938,46 +874,6 @@ const B2BStockMovement = () => {
                   </div>
                 </div>
 
-                {/* Item */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Item *
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <select
-                      value={soForm.item_id || ''}
-                      onChange={(e) => {
-                        const item = inventoryItems.find(i => i.item_id === parseInt(e.target.value));
-                        if (item) handleItemSelect(item);
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select item</option>
-                      {inventoryItems.map(item => (
-                        <option key={item.item_id} value={item.item_id}>
-                          {item.item_name} (Stock: {item.closing_balance})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={soForm.quantity}
-                    onChange={(e) => setSoForm({ ...soForm, quantity: parseInt(e.target.value) || 1 })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
-                  />
-                </div>
 
                 {/* Issued By */}
                 <div>

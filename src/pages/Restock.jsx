@@ -29,12 +29,9 @@ const Restock = () => {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Form states
+   // Form states
   const [newItemForm, setNewItemForm] = useState({
-    item_name: '',
-    barcode: '',
-    quantity: 1,
-    unit_price: 0.0,
-    reorder_level: 0,
+    selected_items: [],
     supplier: '',
     purchase_date: new Date().toISOString().split('T')[0],
     payment_status: 'paid',
@@ -305,34 +302,35 @@ const Restock = () => {
   };
 
   // Form handlers
-  const handleNewItemSubmit = async (e) => {
+ const handleNewItemSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateNewItemForm()) return;
-    
+
     setSubmitting(true);
-    
+
     try {
       // Map payment method to backend expected values
       const paymentMethodMap = { check: 'cheque', cheque: 'cheque', cash: 'cash', transfer: 'transfer', card: 'card' };
       const payment_method = paymentMethodMap[(newItemForm.payment_method || '').toLowerCase()] || 'cash';
-      
-      // Upload invoice file if present
+
+      // Upload invoice file if present (shared for all items)
       let invoice_file_url = null;
       if (newItemForm.invoice_file) {
         const uploadData = new FormData();
         uploadData.append('invoice_file', newItemForm.invoice_file);
-        uploadData.append('desired_name', newItemForm.item_name || 'invoice');
+        uploadData.append('desired_name', 'bulk_items_invoice');
         const uploadRes = await apiService.post('/restock/upload-invoice', uploadData, { headers: { 'Content-Type': 'multipart/form-data' } });
         invoice_file_url = uploadRes.data?.invoice_file_url || null;
       }
-      
-      const payload = {
-        item_name: newItemForm.item_name,
-        barcode: newItemForm.barcode || null,
-        supplied_quantity: Number(newItemForm.quantity || 0),
-        reorder_level: Number(newItemForm.reorder_level || 0),
-        unit_price: Number(newItemForm.unit_price || 0),
+
+      // Build items array
+      const items = newItemForm.selected_items.map(item => ({
+        item_name: item.item_name,
+        barcode: item.barcode || null,
+        supplied_quantity: Number(item.quantity || 0),
+        reorder_level: Number(item.reorder_level || 0),
+        unit_price: Number(item.unit_price || 0),
         supplier_name: newItemForm.supplier || null,
         purchase_date: newItemForm.purchase_date,
         description: null,
@@ -347,19 +345,21 @@ const Restock = () => {
         invoice_file_url,
         employee_id: currentUser?.user_id || currentUser?.id || null,
         employee_name: currentUser?.username || null
-      };
-      
+      }));
+
+      const payload = { items };
+
       await apiService.post('/restock/new-item', payload);
-      
-      toast.success('Item added successfully!');
+
+      toast.success(`${items.length} item(s) added successfully!`);
       toast.info('Refreshing data...');
       setShowNewItemModal(false);
       resetNewItemForm();
       await fetchWarehouses();
       await fetchPurchaseData();
-      
+
     } catch (error) {
-      handleError('Failed to add item', error);
+      handleError('Failed to add items', error);
     } finally {
       setSubmitting(false);
     }
@@ -539,28 +539,39 @@ const Restock = () => {
   // Validation functions
   const validateNewItemForm = () => {
     const errors = [];
-    
-    if (!newItemForm.item_name.trim()) {
-      errors.push('Item name is required');
+
+    if (!newItemForm.selected_items.length) {
+      errors.push('Please add at least one item');
     }
-    if (newItemForm.quantity < 0) {
-      errors.push('Quantity cannot be negative');
+
+    for (let i = 0; i < newItemForm.selected_items.length; i++) {
+      const item = newItemForm.selected_items[i];
+      if (!item.item_name.trim()) {
+        errors.push(`Item ${i + 1}: Item name is required`);
+      }
+      if (item.quantity < 0) {
+        errors.push(`Item ${i + 1}: Quantity cannot be negative`);
+      }
+      if (item.unit_price < 0) {
+        errors.push(`Item ${i + 1}: Unit price cannot be negative`);
+      }
+      if (item.reorder_level < 0) {
+        errors.push(`Item ${i + 1}: Reorder level cannot be negative`);
+      }
     }
-    if (newItemForm.unit_price < 0) {
-      errors.push('Unit price cannot be negative');
-    }
+
     if (!newItemForm.warehouse_name && !newItemForm.new_warehouse_name) {
       errors.push('Please select a warehouse or create a new one');
     }
     if (newItemForm.payment_status !== 'paid' && !newItemForm.due_date) {
       errors.push('Due date is required for credit and partial payments');
     }
-    
+
     if (errors.length > 0) {
       toast.error(errors.join('\n'));
       return false;
     }
-    
+
     return true;
   };
 
@@ -657,11 +668,7 @@ const Restock = () => {
 
   const resetNewItemForm = () => {
     setNewItemForm({
-      item_name: '',
-      barcode: '',
-      quantity: 1,
-      unit_price: 0.0,
-      reorder_level: 0,
+      selected_items: [],
       supplier: '',
       purchase_date: new Date().toISOString().split('T')[0],
       payment_status: 'paid',
@@ -805,6 +812,36 @@ const Restock = () => {
       }));
     }
   };
+  const updateNewItem = (index, field, value) => {
+    setNewItemForm(prev => ({
+      ...prev,
+      selected_items: prev.selected_items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const addNewItemToList = () => {
+    const newItem = {
+      item_name: '',
+      barcode: '',
+      quantity: 1,
+      unit_price: 0.0,
+      reorder_level: 0
+    };
+    setNewItemForm(prev => ({
+      ...prev,
+      selected_items: [...prev.selected_items, newItem]
+    }));
+  };
+
+  const removeNewItemFromList = (index) => {
+    setNewItemForm(prev => ({
+      ...prev,
+      selected_items: prev.selected_items.filter((_, i) => i !== index)
+    }));
+  };
+
 
   // Calculate totals for restock form
   const grandTotal = calculateTotal(restockForm.selected_items);
@@ -1483,7 +1520,7 @@ const Restock = () => {
             })()}
           </div>
 
-          {/* Recent Activity */}
+           {/* Recent Activity */}
           <div>
             <h3 className="text-lg font-medium mb-3">Recent Activity</h3>
             <div className="space-y-3">
@@ -1529,9 +1566,9 @@ const Restock = () => {
       {/* Add New Item Modal */}
       {showNewItemModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Add New Item</h2>
+              <h2 className="text-xl font-semibold">Add New Items</h2>
               <button
                 onClick={() => {
                   setShowNewItemModal(false);
@@ -1542,78 +1579,10 @@ const Restock = () => {
                 ✕
               </button>
             </div>
-            
+
             <form onSubmit={handleNewItemSubmit} className="space-y-4">
+              {/* Common fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                    Item Name *
-                    <Tooltip text="Unique name for the item in your inventory" />
-                  </label>
-                  <input
-                    type="text"
-                    value={newItemForm.item_name}
-                    onChange={(e) => setNewItemForm(prev => ({...prev, item_name: e.target.value}))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Barcode
-                  </label>
-                  <input
-                    type="text"
-                    value={newItemForm.barcode}
-                    onChange={(e) => setNewItemForm(prev => ({...prev, barcode: e.target.value}))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newItemForm.quantity}
-                    onChange={(e) => setNewItemForm(prev => ({...prev, quantity: parseInt(e.target.value) || 0}))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit Price (₦) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newItemForm.unit_price}
-                    onChange={(e) => setNewItemForm(prev => ({...prev, unit_price: parseFloat(e.target.value) || 0}))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                    Reorder Level
-                    <Tooltip text="Minimum stock quantity before reorder alert is triggered" />
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newItemForm.reorder_level}
-                    onChange={(e) => setNewItemForm(prev => ({...prev, reorder_level: parseInt(e.target.value) || 0}))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Supplier
@@ -1625,7 +1594,7 @@ const Restock = () => {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Purchase Date
@@ -1637,7 +1606,7 @@ const Restock = () => {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                     Payment Status
@@ -1667,7 +1636,7 @@ const Restock = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Payment Method
@@ -1683,7 +1652,7 @@ const Restock = () => {
                     <option value="card">Card</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                     Warehouse
@@ -1705,7 +1674,7 @@ const Restock = () => {
                     })}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     New Warehouse Name
@@ -1734,7 +1703,7 @@ const Restock = () => {
                     </select>
                   </div>
                 )}
-                
+
                 {newItemForm.payment_status !== 'paid' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1750,7 +1719,7 @@ const Restock = () => {
                   </div>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes
@@ -1762,7 +1731,7 @@ const Restock = () => {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Invoice File
@@ -1774,7 +1743,94 @@ const Restock = () => {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
+              {/* Items Section */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium text-gray-900">Items to Add</h3>
+                  <button
+                    type="button"
+                    onClick={addNewItemToList}
+                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+
+                {newItemForm.selected_items.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No items added yet. Click "Add Item" to start.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {newItemForm.selected_items.map((item, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-3 items-center p-3 bg-gray-50 rounded">
+                        <div className="col-span-3">
+                          <label className="block text-xs text-gray-600 mb-1">Item Name *</label>
+                          <input
+                            type="text"
+                            value={item.item_name}
+                            onChange={(e) => updateNewItem(index, 'item_name', e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs text-gray-600 mb-1">Barcode</label>
+                          <input
+                            type="text"
+                            value={item.barcode}
+                            onChange={(e) => updateNewItem(index, 'barcode', e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs text-gray-600 mb-1">Quantity *</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={(e) => updateNewItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs text-gray-600 mb-1">Unit Price (₦) *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.unit_price}
+                            onChange={(e) => updateNewItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs text-gray-600 mb-1">Reorder Level</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.reorder_level}
+                            onChange={(e) => updateNewItem(index, 'reorder_level', parseInt(e.target.value) || 0)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removeNewItemFromList(index)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+    
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"

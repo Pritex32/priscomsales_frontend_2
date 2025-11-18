@@ -68,6 +68,33 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
       setLoading(false);
     }
   };
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('requisitionsFilters');
+    if (savedFilters) {
+      try {
+        const filters = JSON.parse(savedFilters);
+        setStatusFilter(filters.statusFilter || '');
+        setSearchTerm(filters.searchTerm || '');
+        setDateRange(filters.dateRange || { start: '', end: '' });
+        setCurrentPage(filters.currentPage || 1);
+      } catch (error) {
+        console.error('Error loading saved filters:', error);
+      }
+    }
+  }, []);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    const filtersToSave = {
+      statusFilter,
+      searchTerm,
+      dateRange,
+      currentPage
+    };
+    localStorage.setItem('requisitionsFilters', JSON.stringify(filtersToSave));
+  }, [statusFilter, searchTerm, dateRange, currentPage]);
+
 
 
   useEffect(() => {
@@ -341,6 +368,8 @@ const RequisitionsList = ({ onCreateNew, onEdit }) => {
                   setSearchTerm('');
                   setDateRange({ start: '', end: '' });
                   setStatusFilter('');
+                  setCurrentPage(1);
+                  localStorage.removeItem('requisitionsFilters');
                   fetchRequisitions();
                 }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm transition-colors"

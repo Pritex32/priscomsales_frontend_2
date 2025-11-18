@@ -323,7 +323,23 @@ const Restock = () => {
         const uploadRes = await apiService.post('/restock/upload-invoice', uploadData, { headers: { 'Content-Type': 'multipart/form-data' } });
         invoice_file_url = uploadRes.data?.invoice_file_url || null;
       }
+      // Calculate total cost for all items
+      const totalCostAllItems = newItemForm.selected_items.reduce((sum, item) => {
+        return sum + (Number(item.quantity || 0) * Number(item.unit_price || 0));
+      }, 0);
 
+      // Determine total_price_paid based on payment_status
+      let finalTotalPricePaid = null;
+      if (newItemForm.payment_status === 'paid') {
+        finalTotalPricePaid = totalCostAllItems;
+      } else if (newItemForm.payment_status === 'partial') {
+        finalTotalPricePaid = Number(newItemForm.total_price_paid || 0);
+      } else {
+        // credit
+        finalTotalPricePaid = 0;
+      }
+
+      // Build items array
       // Build items array
       const items = newItemForm.selected_items.map(item => ({
         item_name: item.item_name,
@@ -341,7 +357,7 @@ const Restock = () => {
         warehouse_name: newItemForm.warehouse_name || null,
         new_warehouse_name: newItemForm.new_warehouse_name || null,
         access_choice: newItemForm.access_choice || 'No',
-        total_price_paid: Number(newItemForm.total_price_paid || 0),
+        total_price_paid: finalTotalPricePaid,
         invoice_file_url,
         employee_id: currentUser?.user_id || currentUser?.id || null,
         employee_name: currentUser?.username || null
@@ -1720,31 +1736,7 @@ const Restock = () => {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <textarea
-                  value={newItemForm.notes}
-                  onChange={(e) => setNewItemForm(prev => ({...prev, notes: e.target.value}))}
-                  rows="3"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Invoice File
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => setNewItemForm(prev => ({...prev, invoice_file: e.target.files[0]}))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Items Section */}
+              {/* Items Section - Moved before Notes and Invoice */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium text-gray-900">Items to Add</h3>
@@ -1830,7 +1822,31 @@ const Restock = () => {
                   </div>
                 )}
               </div>
-    
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={newItemForm.notes}
+                  onChange={(e) => setNewItemForm(prev => ({...prev, notes: e.target.value}))}
+                  rows="3"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Invoice File
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setNewItemForm(prev => ({...prev, invoice_file: e.target.files[0]}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"

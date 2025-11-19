@@ -868,7 +868,7 @@ const B2BStockMovement = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {selectedSourceItems.map(item => (
+                          {[...selectedSourceItems].reverse().map(item => (
                             <tr key={item.item_id}>
                               <td className="px-3 py-2 text-sm text-gray-900">{item.item_name}</td>
                               <td className="px-3 py-2 text-sm text-gray-600">{item.stock}</td>
@@ -984,7 +984,7 @@ const B2BStockMovement = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {selectedDestItems.map(item => (
+                          {[...selectedDestItems].reverse().map(item => (
                             <tr key={item.item_id}>
                               <td className="px-3 py-2 text-sm text-gray-900">{item.item_name}</td>
                               <td className="px-3 py-2 text-sm text-gray-600">{item.stock}</td>
@@ -1209,7 +1209,7 @@ const B2BStockMovement = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedItems.map(item => (
+                        {[...selectedItems].reverse().map(item => (
                           <tr key={item.item_id}>
                             <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
                             <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
@@ -1439,7 +1439,7 @@ const B2BStockMovement = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedItems.map(item => (
+                        {[...selectedItems].reverse().map(item => (
                           <tr key={item.item_id}>
                             <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
                             <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>

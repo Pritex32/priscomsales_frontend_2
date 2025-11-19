@@ -787,235 +787,239 @@ const B2BStockMovement = () => {
                 </div>
               </div>
 
-              {/* SOURCE ITEMS SELECTION */}
-              <div className="border-t border-gray-200 pt-6 mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Select Source Items</h3>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm font-medium text-blue-600">
-                      Total Quantity: {selectedSourceItems.reduce((sum, item) => sum + item.quantity, 0)}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {selectedSourceItems.length} item(s)
-                    </span>
-                    {selectedSourceItems.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearAllSource}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Clear All
-                      </button>
-                    )}
+              {/* SOURCE AND DESTINATION ITEMS SELECTION - SIDE BY SIDE */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-gray-200 pt-6 mt-6">
+                
+                {/* SOURCE ITEMS SELECTION */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Select Source Items</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-medium text-blue-600">
+                        Qty: {selectedSourceItems.reduce((sum, item) => sum + item.quantity, 0)}
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        ({selectedSourceItems.length})
+                      </span>
+                      {selectedSourceItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllSource}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex space-x-2 mb-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={sourceSearchTerm}
-                      onChange={(e) => {
-                        setSourceSearchTerm(e.target.value);
-                        setShowSourceDropdown(e.target.value.length > 0);
-                      }}
-                      onFocus={() => setShowSourceDropdown(sourceSearchTerm.length > 0)}
-                      placeholder="Search source items..."
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                  <div className="flex space-x-2 mb-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        value={sourceSearchTerm}
+                        onChange={(e) => {
+                          setSourceSearchTerm(e.target.value);
+                          setShowSourceDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowSourceDropdown(sourceSearchTerm.length > 0)}
+                        placeholder="Search source..."
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      
+                      {showSourceDropdown && getFilteredSourceItems().length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {getFilteredSourceItems().map(item => (
+                            <button
+                              key={item.item_id}
+                              type="button"
+                              onClick={() => handleAddSourceItem(item)}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                            >
+                              <span className="text-sm text-gray-900">{item.item_name}</span>
+                              <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     
-                    {showSourceDropdown && getFilteredSourceItems().length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {getFilteredSourceItems().map(item => (
-                          <button
-                            key={item.item_id}
-                            type="button"
-                            onClick={() => handleAddSourceItem(item)}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-                          >
-                            <span className="text-sm text-gray-900">{item.item_name}</span>
-                            <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSource}
+                      disabled={loadingSourceItems || sourceInventoryItems.length === 0}
+                      className="px-3 py-2 text-sm bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      <span>All</span>
+                    </button>
                   </div>
-                  
-                  <button
-                    type="button"
-                    onClick={handleSelectAllSource}
-                    disabled={loadingSourceItems || sourceInventoryItems.length === 0}
-                    className="px-4 py-2.5 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                  >
-                    <CheckSquare className="w-4 h-4" />
-                    <span>Select All</span>
-                  </button>
-                </div>
 
-                {selectedSourceItems.length > 0 && (
-                  <div className="border border-blue-200 rounded-lg overflow-hidden bg-blue-50">
-                    <table className="w-full">
-                      <thead className="bg-blue-100">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Source Item</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Available Stock</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Quantity</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedSourceItems.map(item => (
-                          <tr key={item.item_id}>
-                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="number"
-                                min="1"
-                                max={item.stock}
-                                value={item.quantity}
-                                onChange={(e) => handleUpdateSourceQuantity(item.item_id, e.target.value)}
-                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSourceItem(item.item_id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </td>
+                  {selectedSourceItems.length > 0 && (
+                    <div className="border border-blue-200 rounded-lg overflow-hidden bg-blue-50">
+                      <table className="w-full">
+                        <thead className="bg-blue-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-blue-900 uppercase">Item</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-blue-900 uppercase">Stock</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-blue-900 uppercase">Qty</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-blue-900 uppercase">Del</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {selectedSourceItems.map(item => (
+                            <tr key={item.item_id}>
+                              <td className="px-3 py-2 text-sm text-gray-900">{item.item_name}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{item.stock}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={item.stock}
+                                  value={item.quantity}
+                                  onChange={(e) => handleUpdateSourceQuantity(item.item_id, e.target.value)}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSourceItem(item.item_id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                {selectedSourceItems.length === 0 && (
-                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-                    <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No source items selected</p>
-                  </div>
-                )}
-              </div>
-
-              {/* DESTINATION ITEMS SELECTION */}
-              <div className="border-t border-gray-200 pt-6 mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Select Destination Items</h3>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm font-medium text-green-600">
-                      Total Quantity: {selectedDestItems.reduce((sum, item) => sum + item.quantity, 0)}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {selectedDestItems.length} item(s)
-                    </span>
-                    {selectedDestItems.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearAllDest}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
+                  {selectedSourceItems.length === 0 && (
+                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                      <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-xs">No source items</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex space-x-2 mb-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={destSearchTerm}
-                      onChange={(e) => {
-                        setDestSearchTerm(e.target.value);
-                        setShowDestDropdown(e.target.value.length > 0);
-                      }}
-                      onFocus={() => setShowDestDropdown(destSearchTerm.length > 0)}
-                      placeholder="Search destination items..."
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
+                {/* DESTINATION ITEMS SELECTION */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Select Destination Items</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-medium text-green-600">
+                        Qty: {selectedDestItems.reduce((sum, item) => sum + item.quantity, 0)}
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        ({selectedDestItems.length})
+                      </span>
+                      {selectedDestItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllDest}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2 mb-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        value={destSearchTerm}
+                        onChange={(e) => {
+                          setDestSearchTerm(e.target.value);
+                          setShowDestDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowDestDropdown(destSearchTerm.length > 0)}
+                        placeholder="Search destination..."
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                      
+                      {showDestDropdown && getFilteredDestItems().length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {getFilteredDestItems().map(item => (
+                            <button
+                              key={item.item_id}
+                              type="button"
+                              onClick={() => handleAddDestItem(item)}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                            >
+                              <span className="text-sm text-gray-900">{item.item_name}</span>
+                              <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     
-                    {showDestDropdown && getFilteredDestItems().length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {getFilteredDestItems().map(item => (
-                          <button
-                            key={item.item_id}
-                            type="button"
-                            onClick={() => handleAddDestItem(item)}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-                          >
-                            <span className="text-sm text-gray-900">{item.item_name}</span>
-                            <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllDest}
+                      disabled={loadingDestItems || destinationInventoryItems.length === 0}
+                      className="px-3 py-2 text-sm bg-green-100 text-green-700 font-medium rounded-lg hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      <span>All</span>
+                    </button>
                   </div>
-                  
-                  <button
-                    type="button"
-                    onClick={handleSelectAllDest}
-                    disabled={loadingDestItems || destinationInventoryItems.length === 0}
-                    className="px-4 py-2.5 bg-green-100 text-green-700 font-medium rounded-lg hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                  >
-                    <CheckSquare className="w-4 h-4" />
-                    <span>Select All</span>
-                  </button>
-                </div>
 
-                {selectedDestItems.length > 0 && (
-                  <div className="border border-green-200 rounded-lg overflow-hidden bg-green-50">
-                    <table className="w-full">
-                      <thead className="bg-green-100">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Destination Item</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Available Stock</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Quantity</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedDestItems.map(item => (
-                          <tr key={item.item_id}>
-                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => handleUpdateDestQuantity(item.item_id, e.target.value)}
-                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveDestItem(item.item_id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </td>
+                  {selectedDestItems.length > 0 && (
+                    <div className="border border-green-200 rounded-lg overflow-hidden bg-green-50">
+                      <table className="w-full">
+                        <thead className="bg-green-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-green-900 uppercase">Item</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-green-900 uppercase">Stock</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-green-900 uppercase">Qty</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-green-900 uppercase">Del</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {selectedDestItems.map(item => (
+                            <tr key={item.item_id}>
+                              <td className="px-3 py-2 text-sm text-gray-900">{item.item_name}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{item.stock}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => handleUpdateDestQuantity(item.item_id, e.target.value)}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDestItem(item.item_id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                {selectedDestItems.length === 0 && (
-                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-                    <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No destination items selected</p>
-                  </div>
-                )}
+                  {selectedDestItems.length === 0 && (
+                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                      <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-xs">No destination items</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Form Fields - MOVED BELOW Item Selection */}

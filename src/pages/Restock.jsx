@@ -488,6 +488,44 @@ const Restock = () => {
         });
       });
       console.log('=====================================');
+      console.log('-'.repeat(80));
+      console.log('INVENTORY LOOKUP:');
+      console.log('  Available Items Count:', Object.keys(inventoryItems).length);
+      console.log('  Sample Items:', Object.keys(inventoryItems).slice(0, 5));
+      console.log('-'.repeat(80));
+      console.log('CALCULATED VALUES:');
+      console.log('  Grand Total Calculated:', calculatedGrandTotal);
+      console.log('  Total Price Paid (final):', total_price_paid);
+      console.log('  Outstanding:', calculatedGrandTotal - total_price_paid);
+      console.log('-'.repeat(80));
+      console.log('PAYLOAD BEING SENT:');
+      console.log('  Payload Type:', typeof payload);
+      console.log('  Payload Keys:', Object.keys(payload));
+      console.log('  Full Payload (stringified):', JSON.stringify(payload, null, 2));
+      console.log('-'.repeat(80));
+      console.log('ITEMS IN PAYLOAD:');
+      payload.items.forEach((item, idx) => {
+        console.log(`  Payload Item ${idx + 1}:`, {
+          item_id: item.item_id,
+          item_name: item.item_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          warehouse_name: item.warehouse_name,
+          inventory_lookup: inventoryItems[item.item_name]
+        });
+      });
+      console.log('='.repeat(80));
+      console.log('SENDING REQUEST TO: /restock/batch');
+      console.log('='.repeat(80));
+      
+      const response = await apiService.post('/restock/batch', payload);
+      
+      console.log('='.repeat(80));
+      console.log('RESPONSE RECEIVED:');
+      console.log('  Status:', response.status);
+      console.log('  Data:', JSON.stringify(response.data, null, 2));
+      console.log('='.repeat(80));
+      
       
       await apiService.post('/restock/batch', payload);
       

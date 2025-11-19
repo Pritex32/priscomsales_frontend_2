@@ -736,6 +736,149 @@ const B2BStockMovement = () => {
               </div>
             </form>
           )}
+          {/* Item Selection Section */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Select Items to Transfer</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">
+                      {selectedItems.length} item(s) selected
+                    </span>
+                    {selectedItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search and Add Items */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search and Add Items
+                  </label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setShowDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowDropdown(searchTerm.length > 0)}
+                        placeholder="Search items by name..."
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      
+                      {/* Dropdown for search results */}
+                      {showDropdown && getFilteredItems().length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {getFilteredItems().map(item => (
+                            <button
+                              key={item.item_id}
+                              type="button"
+                              onClick={() => handleAddItem(item)}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                            >
+                              <span className="text-sm text-gray-900">{item.item_name}</span>
+                              <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      disabled={loadingSourceItems || sourceInventoryItems.length === 0}
+                      className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      <span>Select All</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected Items Table */}
+                {selectedItems.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destination Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Available Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedItems.map(item => (
+                          <tr key={item.item_id}>
+                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="text"
+                                value={item.item_name_to}
+                                onChange={(e) => handleUpdateItemNameTo(item.item_id, e.target.value)}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                placeholder="Destination item name"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                max={item.stock}
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateItemQuantity(item.item_id, e.target.value)}
+                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.item_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {selectedItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p>No items selected. Search and add items above.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={loading || selectedItems.length === 0}
+                  className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? 'Processing...' : `Transfer ${selectedItems.length} Item(s)`}
+                </button>
+              </div>
+            </form>
+          )}
+
 
           {/* Customer Sale Form */}
           {activeTab === 'customer_sale' && (
@@ -930,13 +1073,134 @@ const B2BStockMovement = () => {
                 </div>
               </div>
 
+              {/* Item Selection Section for Stockout */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Select Items to Write Off</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">
+                      {selectedItems.length} item(s) selected
+                    </span>
+                    {selectedItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search and Add Items */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search and Add Items
+                  </label>
+                  <div className="flex space-x-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setShowDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowDropdown(searchTerm.length > 0)}
+                        placeholder="Search items by name..."
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      />
+                      
+                      {/* Dropdown for search results */}
+                      {showDropdown && getFilteredItems().length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {getFilteredItems().map(item => (
+                            <button
+                              key={item.item_id}
+                              type="button"
+                              onClick={() => handleAddItem(item)}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                            >
+                              <span className="text-sm text-gray-900">{item.item_name}</span>
+                              <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      disabled={loadingItems || inventoryItems.length === 0}
+                      className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      <span>Select All</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected Items Table */}
+                {selectedItems.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Available Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedItems.map(item => (
+                          <tr key={item.item_id}>
+                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                max={item.stock}
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateItemQuantity(item.item_id, e.target.value)}
+                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.item_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {selectedItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p>No items selected. Search and add items above.</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || selectedItems.length === 0}
                   className="px-6 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Processing...' : 'Write Off Stock'}
+                  {loading ? 'Processing...' : `Write Off ${selectedItems.length} Item(s)`}
                 </button>
               </div>
             </form>

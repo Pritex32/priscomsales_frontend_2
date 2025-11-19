@@ -13,7 +13,9 @@ import {
   Download,
   Calendar,
   Building,
-  User
+  User,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import apiService from '../services/api';
 import { toast } from 'react-toastify';
@@ -23,6 +25,12 @@ const Restock = () => {
   // State management
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('manage');
+  // Pagination state - persist in localStorage
+  const [restockPage, setRestockPage] = useState(() => {
+    const saved = localStorage.getItem('restockPage');
+    return saved ? parseInt(saved, 10) : 1;
+  });
+  const restockPageSize = 20;
   const [warehouses, setWarehouses] = useState([]);
   const [inventoryItems, setInventoryItems] = useState({});
   const [purchaseData, setPurchaseData] = useState([]);
@@ -102,6 +110,10 @@ const Restock = () => {
   useEffect(() => {
     fetchPurchaseData();
   }, [selectedWarehouseFilter]);
+  // Persist page number to localStorage
+  useEffect(() => {
+    localStorage.setItem('restockPage', restockPage.toString());
+  }, [restockPage]);
   
   // Test API connection
   const testApiConnection = async () => {
@@ -875,6 +887,59 @@ const Restock = () => {
     .filter(name => name.toLowerCase().includes(restockItemQuery.toLowerCase()) && !restockForm.selected_items.find(si => si.item_name === name))
     .slice(0, 10);
 
+  // Pagination for restock list
+  const paginatedPurchaseData = React.useMemo(() => {
+    const filtered = purchaseData.filter(item => {
+      const matchesSearch = !searchTerm ||
+        item.item_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesWarehouse = !selectedWarehouseFilter ||
+        item.warehouse_name === selectedWarehouseFilter ||
+        item.warehouse === selectedWarehouseFilter;
+      
+      // Date range filter for recent section
+      const d = parseDate(item.purchase_date);
+      const sd = recentStartDate ? parseDate(recentStartDate) : null;
+      const ed = recentEndDate ? parseDate(recentEndDate) : null;
+      const matchesDate = (!sd || (d && d >= sd)) && (!ed || (d && d <= ed));
+
+      return matchesSearch && matchesWarehouse && matchesDate;
+    });
+    
+    // Sort by date descending
+    const sorted = filtered.slice().sort((a,b) => {
+      const da = parseDate(a.purchase_date);
+      const db = parseDate(b.purchase_date);
+      return (db?.getTime()||0) - (da?.getTime()||0);
+    });
+    
+    // Paginate
+    const start = (restockPage - 1) * restockPageSize;
+    return sorted.slice(start, start + restockPageSize);
+  }, [purchaseData, searchTerm, selectedWarehouseFilter, recentStartDate, recentEndDate, restockPage]);
+  
+  const totalRestockPages = React.useMemo(() => {
+    const filtered = purchaseData.filter(item => {
+      const matchesSearch = !searchTerm ||
+        item.item_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesWarehouse = !selectedWarehouseFilter ||
+        item.warehouse_name === selectedWarehouseFilter ||
+        item.warehouse === selectedWarehouseFilter;
+      
+      const d = parseDate(item.purchase_date);
+      const sd = recentStartDate ? parseDate(recentStartDate) : null;
+      const ed = recentEndDate ? parseDate(recentEndDate) : null;
+      const matchesDate = (!sd || (d && d >= sd)) && (!ed || (d && d <= ed));
+
+      return matchesSearch && matchesWarehouse && matchesDate;
+    });
+    return Math.ceil(filtered.length / restockPageSize);
+  }, [purchaseData, searchTerm, selectedWarehouseFilter, recentStartDate, recentEndDate]);
+
+
   // Filter functions
   const filteredPurchaseData = purchaseData.filter(item => {
     const matchesSearch = !searchTerm || 
@@ -1206,7 +1271,7 @@ const Restock = () => {
                     <Package className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No purchase data found</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      {purchaseData.length === 0 ? 
+                      {purchaseData.length === 0 ?
                         'No purchases have been recorded yet.' :
                         'No purchases match your search criteria.'
                       }
@@ -1222,85 +1287,109 @@ const Restock = () => {
                     </div>
                   </div>
                 ) : (
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Supplier
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Quantity
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPurchaseData
-                        .slice()
-                        .sort((a,b) => {
-                          const da = parseDate(a.purchase_date); const db = parseDate(b.purchase_date);
-                          return (db?.getTime()||0) - (da?.getTime()||0);
-                        })
-                        .slice(0, 10)
-                        .map((purchase, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {purchase.item_name || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {purchase.supplier_name || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {purchase.supplied_quantity || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatCurrency(purchase.total_price_paid || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {purchase.purchase_date ? new Date(purchase.purchase_date + 'T00:00:00').toLocaleDateString() : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              purchase.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
-                              purchase.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {purchase.payment_status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <button
-                              disabled={!purchase.purchase_id || !purchase.purchase_date}
-                              onClick={() => handleDeletePurchase(purchase)}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
+                  <>
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Item
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Supplier
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Quantity
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedPurchaseData.map((purchase, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {purchase.item_name || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {purchase.supplier_name || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {purchase.supplied_quantity || 0}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formatCurrency(purchase.total_price_paid || 0)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {purchase.purchase_date ? new Date(purchase.purchase_date + 'T00:00:00').toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                purchase.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                                purchase.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {purchase.payment_status || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <button
+                                disabled={!purchase.purchase_id || !purchase.purchase_date}
+                                onClick={() => handleDeletePurchase(purchase)}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    
+                    {/* Pagination Controls */}
+                    {totalRestockPages > 1 && (
+                      <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-700">
+                            Page <span className="font-medium">{restockPage}</span> of{' '}
+                            <span className="font-medium">{totalRestockPages}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setRestockPage(Math.max(1, restockPage - 1))}
+                              disabled={restockPage === 1}
+                              className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <ChevronLeft className="w-4 h-4 mr-1" />
+                              Previous
+                            </button>
+                            <button
+                              onClick={() => setRestockPage(Math.min(totalRestockPages, restockPage + 1))}
+                              disabled={restockPage === totalRestockPages}
+                              className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Next
+                              <ChevronRight className="w-4 h-4 ml-1" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           </div>
         </div>
       )}
-
       {activeTab === 'data' && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Purchase Data</h2>

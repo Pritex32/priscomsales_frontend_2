@@ -320,8 +320,7 @@ const Restock = () => {
     if (!validateNewItemForm()) return;
 
     setSubmitting(true);
-
-    try {
+try {
       // Map payment method to backend expected values
       const paymentMethodMap = { check: 'cheque', cheque: 'cheque', cash: 'cash', transfer: 'transfer', card: 'card' };
       const payment_method = paymentMethodMap[(newItemForm.payment_method || '').toLowerCase()] || 'cash';
@@ -335,6 +334,7 @@ const Restock = () => {
         const uploadRes = await apiService.post('/restock/upload-invoice', uploadData, { headers: { 'Content-Type': 'multipart/form-data' } });
         invoice_file_url = uploadRes.data?.invoice_file_url || null;
       }
+
       // Calculate total cost for all items
       const totalCostAllItems = newItemForm.selected_items.reduce((sum, item) => {
         return sum + (Number(item.quantity || 0) * Number(item.unit_price || 0));
@@ -351,33 +351,88 @@ const Restock = () => {
         finalTotalPricePaid = 0;
       }
 
-      // Build items array
-      // Build items array
-      const items = newItemForm.selected_items.map(item => ({
-        item_name: item.item_name,
-        barcode: item.barcode || null,
-        supplied_quantity: Number(item.quantity || 0),
-        reorder_level: Number(item.reorder_level || 0),
-        unit_price: Number(item.unit_price || 0),
-        supplier_name: newItemForm.supplier || null,
-        purchase_date: newItemForm.purchase_date,
-        description: null,
-        payment_status: newItemForm.payment_status,
-        payment_method,
-        due_date: newItemForm.due_date || null,
-        notes: newItemForm.notes || null,
-        warehouse_name: newItemForm.warehouse_name || null,
-        new_warehouse_name: newItemForm.new_warehouse_name || null,
-        access_choice: newItemForm.access_choice || 'No',
-        total_price_paid: finalTotalPricePaid,
-        invoice_file_url,
-        employee_id: currentUser?.user_id || currentUser?.id || null,
-        employee_name: currentUser?.username || null
-      }));
+      // Build items array - MUST match NewItemRequest model exactly
+      const items = newItemForm.selected_items.map(item => {
+        const itemPayload = {
+          // REQUIRED fields
+          item_name: item.item_name,
+          supplied_quantity: Number(item.quantity || 0),
+          reorder_level: Number(item.reorder_level || 0),
+          unit_price: Number(item.unit_price || 0),
+          purchase_date: newItemForm.purchase_date,
+          payment_status: newItemForm.payment_status,
+          payment_method,
+          
+          // OPTIONAL fields
+          barcode: item.barcode || null,
+          supplier_name: newItemForm.supplier || null,
+          description: null,
+          due_date: newItemForm.due_date || null,
+          notes: newItemForm.notes || null,
+          warehouse_name: newItemForm.warehouse_name || null,
+          new_warehouse_name: newItemForm.new_warehouse_name || null,
+          access_choice: newItemForm.access_choice || 'No',
+          total_price_paid: finalTotalPricePaid,
+          invoice_file_url,
+          employee_id: currentUser?.user_id || currentUser?.id || null,
+          employee_name: currentUser?.username || null
+        };
+        
+        console.log('Built item payload:', JSON.stringify(itemPayload, null, 2));
+        return itemPayload;
+      });
 
       const payload = { items };
 
-      await apiService.post('/restock/new-item', payload);
+      console.log('='.repeat(80));
+      console.log('FRONTEND - NEW ITEM SUBMISSION DEBUG');
+      console.log('='.repeat(80));
+      console.log('FORM STATE:');
+      console.log('  Supplier:', newItemForm.supplier);
+      console.log('  Purchase Date:', newItemForm.purchase_date);
+      console.log('  Payment Status:', newItemForm.payment_status);
+      console.log('  Payment Method:', newItemForm.payment_method);
+      console.log('  Warehouse Name:', newItemForm.warehouse_name);
+      console.log('  New Warehouse Name:', newItemForm.new_warehouse_name);
+      console.log('  Access Choice:', newItemForm.access_choice);
+      console.log('  Due Date:', newItemForm.due_date);
+      console.log('  Notes:', newItemForm.notes);
+      console.log('  Form total_price_paid:', newItemForm.total_price_paid);
+      console.log('  Invoice File:', newItemForm.invoice_file?.name);
+      console.log('-'.repeat(80));
+      console.log('SELECTED ITEMS (from form):');
+      newItemForm.selected_items.forEach((item, idx) => {
+        console.log(`  Form Item ${idx + 1}:`, {
+          item_name: item.item_name,
+          barcode: item.barcode,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          reorder_level: item.reorder_level
+        });
+      });
+      console.log('-'.repeat(80));
+      console.log('CALCULATED VALUES:');
+      console.log('  Total Cost All Items:', totalCostAllItems);
+      console.log('  Final Total Price Paid:', finalTotalPricePaid);
+      console.log('-'.repeat(80));
+      console.log('ITEMS ARRAY BEING SENT:');
+      items.forEach((item, idx) => {
+        console.log(`  Payload Item ${idx + 1}:`, JSON.stringify(item, null, 2));
+      });
+      console.log('-'.repeat(80));
+      console.log('FULL PAYLOAD:');
+      console.log(JSON.stringify(payload, null, 2));
+      console.log('='.repeat(80));
+      console.log('SENDING REQUEST TO: /restock/new-item');
+      console.log('='.repeat(80));
+
+      const response = await apiService.post('/restock/new-item', payload);
+
+      console.log('='.repeat(80));
+      console.log('RESPONSE RECEIVED:');
+      console.log('  Status:', response.status);
+      console.log('  Data:', JSON.stringify(response.data, null, 2));
+      console.log('='.repeat(80));
 
       toast.success(`${items.length} item(s) added successfully!`);
       toast.info('Refreshing data...');
@@ -387,12 +442,38 @@ const Restock = () => {
       await fetchPurchaseData();
 
     } catch (error) {
+      console.log('='.repeat(80));
+      console.log('ERROR CAUGHT IN NEW ITEM SUBMISSION');
+      console.log('='.repeat(80));
+      console.log('Error Object:', error);
+      console.log('Error Message:', error.message);
+      console.log('Error Response:', error.response);
+      if (error.response) {
+        console.log('Response Status:', error.response.status);
+        console.log('Response Status Text:', error.response.statusText);
+        console.log('Response Headers:', error.response.headers);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        if (error.response.data?.detail) {
+          console.log('Error Detail:', error.response.data.detail);
+          if (Array.isArray(error.response.data.detail)) {
+            console.log('Validation Errors:');
+            error.response.data.detail.forEach((err, idx) => {
+              console.log(`  Error ${idx + 1}:`, {
+                loc: err.loc,
+                msg: err.msg,
+                type: err.type,
+                input: err.input
+              });
+            });
+          }
+        }
+      }
+      console.log('='.repeat(80));
       handleError('Failed to add items', error);
     } finally {
       setSubmitting(false);
     }
   };
-
   const handleRestockSubmit = async (e) => {
     e.preventDefault();
     

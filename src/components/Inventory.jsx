@@ -3,6 +3,8 @@ import api from '../services/api';
 import { usePermission } from '../hooks/usePermission';
 const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 import { toast } from 'react-toastify';
+import { Download } from 'lucide-react';
+
 const formatDate = (d) => {
   if (!d) return '';
   if (typeof d === 'string') return d;
@@ -82,6 +84,10 @@ const Inventory = () => {
 // Pagination for history table in modal
   const [historyPage, setHistoryPage] = useState(1);
   const historyPageSize = 5;
+  // Download inventory state
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadWarehouse, setDownloadWarehouse] = useState('');
+
 
   const refreshHomeData = React.useCallback(async () => {
     setLoading(true); setError('');
@@ -497,6 +503,62 @@ const Inventory = () => {
       setLoading(false);
     }
   };
+  const handleDownloadInventory = async () => {
+    if (!downloadWarehouse) {
+      toast.error('Please select a warehouse');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await api.get('/inventory/items-map', {
+        params: { warehouse_name: downloadWarehouse }
+      });
+      
+      const items = response.data || {};
+      
+      if (Object.keys(items).length === 0) {
+        toast.error('No inventory items found for this warehouse');
+        return;
+      }
+      
+      // Create CSV content
+      const csvRows = [
+        ['Item Name', 'Item ID', 'Price', 'Warehouse'].join(',')
+      ];
+      
+      Object.entries(items).forEach(([itemName, itemData]) => {
+        const row = [
+          `"${itemName.replace(/"/g, '""')}"`,
+          itemData.item_id || '',
+          itemData.price || 0,
+          `"${downloadWarehouse.replace(/"/g, '""')}"`
+        ].join(',');
+        csvRows.push(row);
+      });
+      
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `inventory_${downloadWarehouse}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${Object.keys(items).length} items from ${downloadWarehouse}`);
+      setShowDownloadModal(false);
+      setDownloadWarehouse('');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="p-6 space-y-4">
@@ -1066,8 +1128,66 @@ const Inventory = () => {
           </div>
         </div>
       )}
+      {/* Download Inventory Modal */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Download Inventory</h3>
+              <button onClick={() => {
+                setShowDownloadModal(false);
+                setDownloadWarehouse('');
+              }} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Select Warehouse</label>
+                <select
+                  value={downloadWarehouse}
+                  onChange={(e) => setDownloadWarehouse(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="">Choose warehouse...</option>
+                  {warehouses.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </div>
+              
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <p className="text-sm text-blue-900">
+                  This will download a CSV file containing all inventory item names for the selected warehouse.
+                </p>
+              </div>
+              
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => {
+                    setShowDownloadModal(false);
+                    setDownloadWarehouse('');
+                  }}
+                  className="px-4 py-2 rounded border hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDownloadInventory}
+                  className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  disabled={loading || !downloadWarehouse}
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+   
+    
+  
 
 export default Inventory;

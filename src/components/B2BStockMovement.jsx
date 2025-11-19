@@ -35,6 +35,14 @@ const B2BStockMovement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   
+  // Separate source and destination items for warehouse transfer
+  const [selectedSourceItems, setSelectedSourceItems] = useState([]); // Source items
+  const [selectedDestItems, setSelectedDestItems] = useState([]); // Destination items
+  const [sourceSearchTerm, setSourceSearchTerm] = useState('');
+  const [destSearchTerm, setDestSearchTerm] = useState('');
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
+  const [showDestDropdown, setShowDestDropdown] = useState(false);
+  
   // Warehouse Transfer state
   const [wtForm, setWtForm] = useState({
     source_warehouse: '',
@@ -265,9 +273,10 @@ const B2BStockMovement = () => {
   const handleWarehouseTransfer = async (e) => {
     e.preventDefault();
     
-    if (!wtForm.source_warehouse || !wtForm.destination_warehouse || selectedItems.length === 0 ||
+    if (!wtForm.source_warehouse || !wtForm.destination_warehouse ||
+        selectedSourceItems.length === 0 || selectedDestItems.length === 0 ||
         !wtForm.issued_by || !wtForm.received_by) {
-      toast.error('Please fill all required fields and select at least one item');
+      toast.error('Please fill all required fields and select source and destination items');
       return;
     }
     
@@ -276,14 +285,23 @@ const B2BStockMovement = () => {
       return;
     }
     
+    if (selectedSourceItems.length !== selectedDestItems.length) {
+      toast.error('Number of source items must match number of destination items');
+      return;
+    }
+    
     setLoading(true);
     try {
-      const items = selectedItems.map(item => ({
-        item_id: item.item_id,
-        item_name: item.item_name,
-        item_name_to: item.item_name_to || item.item_name,
-        quantity: item.quantity
-      }));
+      // Map source items to destination items
+      const items = selectedSourceItems.map((sourceItem, index) => {
+        const destItem = selectedDestItems[index];
+        return {
+          item_id: sourceItem.item_id,
+          item_name: sourceItem.item_name,
+          item_name_to: destItem ? destItem.item_name : sourceItem.item_name,
+          quantity: sourceItem.quantity
+        };
+      });
       
       await api.post('/b2b/transfer/warehouse', {
         transfer_type: 'warehouse_transfer',
@@ -301,8 +319,10 @@ const B2BStockMovement = () => {
       loadMovements();
       loadSourceInventoryItems(wtForm.source_warehouse);
       loadDestinationInventoryItems(wtForm.destination_warehouse);
-      setSelectedItems([]);
-      setSearchTerm('');
+      setSelectedSourceItems([]);
+      setSelectedDestItems([]);
+      setSourceSearchTerm('');
+      setDestSearchTerm('');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Transfer failed');
     } finally {
@@ -477,12 +497,124 @@ const B2BStockMovement = () => {
     toast.info('Cleared all items');
   };
 
+  // Helper functions for source items
+  const handleAddSourceItem = (item) => {
+    if (selectedSourceItems.find(i => i.item_id === item.item_id)) {
+      toast.warning('Item already added to source');
+      return;
+    }
+    setSelectedSourceItems(prev => [...prev, {
+      item_id: item.item_id,
+      item_name: item.item_name,
+      quantity: 1,
+      stock: item.closing_balance
+    }]);
+    setSourceSearchTerm('');
+    setShowSourceDropdown(false);
+    toast.success(`Added ${item.item_name} to source`);
+  };
+
+  const handleRemoveSourceItem = (itemId) => {
+    setSelectedSourceItems(prev => prev.filter(item => item.item_id !== itemId));
+  };
+
+  const handleUpdateSourceQuantity = (itemId, quantity) => {
+    setSelectedSourceItems(prev => prev.map(item =>
+      item.item_id === itemId ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
+    ));
+  };
+
+  const handleSelectAllSource = () => {
+    const newItems = sourceInventoryItems.filter(item => !selectedSourceItems.find(si => si.item_id === item.item_id))
+      .map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        quantity: 1,
+        stock: item.closing_balance
+      }));
+    
+    if (newItems.length > 0) {
+      setSelectedSourceItems(prev => [...prev, ...newItems]);
+      toast.success(`Added ${newItems.length} source item(s)`);
+    } else {
+      toast.info('All source items already selected');
+    }
+  };
+
+  const handleClearAllSource = () => {
+    setSelectedSourceItems([]);
+    toast.info('Cleared all source items');
+  };
+
+  // Helper functions for destination items
+  const handleAddDestItem = (item) => {
+    if (selectedDestItems.find(i => i.item_id === item.item_id)) {
+      toast.warning('Item already added to destination');
+      return;
+    }
+    setSelectedDestItems(prev => [...prev, {
+      item_id: item.item_id,
+      item_name: item.item_name,
+      quantity: 1,
+      stock: item.closing_balance
+    }]);
+    setDestSearchTerm('');
+    setShowDestDropdown(false);
+    toast.success(`Added ${item.item_name} to destination`);
+  };
+
+  const handleRemoveDestItem = (itemId) => {
+    setSelectedDestItems(prev => prev.filter(item => item.item_id !== itemId));
+  };
+
+  const handleUpdateDestQuantity = (itemId, quantity) => {
+    setSelectedDestItems(prev => prev.map(item =>
+      item.item_id === itemId ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
+    ));
+  };
+
+  const handleSelectAllDest = () => {
+    const newItems = destinationInventoryItems.filter(item => !selectedDestItems.find(si => si.item_id === item.item_id))
+      .map(item => ({
+        item_id: item.item_id,
+        item_name: item.item_name,
+        quantity: 1,
+        stock: item.closing_balance
+      }));
+    
+    if (newItems.length > 0) {
+      setSelectedDestItems(prev => [...prev, ...newItems]);
+      toast.success(`Added ${newItems.length} destination item(s)`);
+    } else {
+      toast.info('All destination items already selected');
+    }
+  };
+
+  const handleClearAllDest = () => {
+    setSelectedDestItems([]);
+    toast.info('Cleared all destination items');
+  };
+
   // Filter items based on search term
   const getFilteredItems = () => {
     const items = activeTab === 'warehouse_transfer' ? sourceInventoryItems : inventoryItems;
     if (!searchTerm) return items;
     return items.filter(item =>
       item.item_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredSourceItems = () => {
+    if (!sourceSearchTerm) return sourceInventoryItems;
+    return sourceInventoryItems.filter(item =>
+      item.item_name.toLowerCase().includes(sourceSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredDestItems = () => {
+    if (!destSearchTerm) return destinationInventoryItems;
+    return destinationInventoryItems.filter(item =>
+      item.item_name.toLowerCase().includes(destSearchTerm.toLowerCase())
     );
   };
 
@@ -653,8 +785,241 @@ const B2BStockMovement = () => {
                     <p className="text-xs text-red-600 mt-1">Please create another warehouse to enable transfers</p>
                   )}
                 </div>
+              </div>
 
+              {/* SOURCE ITEMS SELECTION */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Select Source Items</h3>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-blue-600">
+                      Total Quantity: {selectedSourceItems.reduce((sum, item) => sum + item.quantity, 0)}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {selectedSourceItems.length} item(s)
+                    </span>
+                    {selectedSourceItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllSource}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
 
+                <div className="flex space-x-2 mb-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={sourceSearchTerm}
+                      onChange={(e) => {
+                        setSourceSearchTerm(e.target.value);
+                        setShowSourceDropdown(e.target.value.length > 0);
+                      }}
+                      onFocus={() => setShowSourceDropdown(sourceSearchTerm.length > 0)}
+                      placeholder="Search source items..."
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    
+                    {showSourceDropdown && getFilteredSourceItems().length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {getFilteredSourceItems().map(item => (
+                          <button
+                            key={item.item_id}
+                            type="button"
+                            onClick={() => handleAddSourceItem(item)}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                          >
+                            <span className="text-sm text-gray-900">{item.item_name}</span>
+                            <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={handleSelectAllSource}
+                    disabled={loadingSourceItems || sourceInventoryItems.length === 0}
+                    className="px-4 py-2.5 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span>Select All</span>
+                  </button>
+                </div>
+
+                {selectedSourceItems.length > 0 && (
+                  <div className="border border-blue-200 rounded-lg overflow-hidden bg-blue-50">
+                    <table className="w-full">
+                      <thead className="bg-blue-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Source Item</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Available Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Quantity</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedSourceItems.map(item => (
+                          <tr key={item.item_id}>
+                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                max={item.stock}
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateSourceQuantity(item.item_id, e.target.value)}
+                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSourceItem(item.item_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {selectedSourceItems.length === 0 && (
+                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                    <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No source items selected</p>
+                  </div>
+                )}
+              </div>
+
+              {/* DESTINATION ITEMS SELECTION */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Select Destination Items</h3>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-green-600">
+                      Total Quantity: {selectedDestItems.reduce((sum, item) => sum + item.quantity, 0)}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {selectedDestItems.length} item(s)
+                    </span>
+                    {selectedDestItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllDest}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex space-x-2 mb-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={destSearchTerm}
+                      onChange={(e) => {
+                        setDestSearchTerm(e.target.value);
+                        setShowDestDropdown(e.target.value.length > 0);
+                      }}
+                      onFocus={() => setShowDestDropdown(destSearchTerm.length > 0)}
+                      placeholder="Search destination items..."
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                    
+                    {showDestDropdown && getFilteredDestItems().length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {getFilteredDestItems().map(item => (
+                          <button
+                            key={item.item_id}
+                            type="button"
+                            onClick={() => handleAddDestItem(item)}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
+                          >
+                            <span className="text-sm text-gray-900">{item.item_name}</span>
+                            <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={handleSelectAllDest}
+                    disabled={loadingDestItems || destinationInventoryItems.length === 0}
+                    className="px-4 py-2.5 bg-green-100 text-green-700 font-medium rounded-lg hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    <span>Select All</span>
+                  </button>
+                </div>
+
+                {selectedDestItems.length > 0 && (
+                  <div className="border border-green-200 rounded-lg overflow-hidden bg-green-50">
+                    <table className="w-full">
+                      <thead className="bg-green-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Destination Item</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Available Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Quantity</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-green-900 uppercase">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedDestItems.map(item => (
+                          <tr key={item.item_id}>
+                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateDestQuantity(item.item_id, e.target.value)}
+                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDestItem(item.item_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {selectedDestItems.length === 0 && (
+                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                    <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No destination items selected</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Fields - MOVED BELOW Item Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 {/* Issued By */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -725,144 +1090,13 @@ const B2BStockMovement = () => {
                 </div>
               </div>
 
-              {/* Item Selection Section */}
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Select Items to Transfer</h3>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">
-                      {selectedItems.length} item(s) selected
-                    </span>
-                    {selectedItems.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearAll}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Search and Add Items */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Search and Add Items
-                  </label>
-                  <div className="flex space-x-2">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => {
-                          setSearchTerm(e.target.value);
-                          setShowDropdown(e.target.value.length > 0);
-                        }}
-                        onFocus={() => setShowDropdown(searchTerm.length > 0)}
-                        placeholder="Search items by name..."
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      
-                      {/* Dropdown for search results */}
-                      {showDropdown && getFilteredItems().length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {getFilteredItems().map(item => (
-                            <button
-                              key={item.item_id}
-                              type="button"
-                              onClick={() => handleAddItem(item)}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between"
-                            >
-                              <span className="text-sm text-gray-900">{item.item_name}</span>
-                              <span className="text-xs text-gray-500">Stock: {item.closing_balance}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={handleSelectAll}
-                      disabled={loadingSourceItems || sourceInventoryItems.length === 0}
-                      className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                    >
-                      <CheckSquare className="w-4 h-4" />
-                      <span>Select All</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Selected Items Table */}
-                {selectedItems.length > 0 && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destination Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Available Stock</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedItems.map(item => (
-                          <tr key={item.item_id}>
-                            <td className="px-4 py-3 text-sm text-gray-900">{item.item_name}</td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="text"
-                                value={item.item_name_to}
-                                onChange={(e) => handleUpdateItemNameTo(item.item_id, e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                placeholder="Destination item name"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.stock}</td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="number"
-                                min="1"
-                                max={item.stock}
-                                value={item.quantity}
-                                onChange={(e) => handleUpdateItemQuantity(item.item_id, e.target.value)}
-                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(item.item_id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {selectedItems.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>No items selected. Search and add items above.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end">
+              <div className="flex justify-end mt-6">
                 <button
                   type="submit"
-                  disabled={loading || selectedItems.length === 0}
+                  disabled={loading || selectedSourceItems.length === 0 || selectedDestItems.length === 0}
                   className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Processing...' : `Transfer ${selectedItems.length} Item(s)`}
+                  {loading ? 'Processing...' : `Transfer ${selectedSourceItems.length} Item(s)`}
                 </button>
               </div>
             </form>

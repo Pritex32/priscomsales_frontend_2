@@ -270,15 +270,22 @@ const Inventory = () => {
       setHistoryPage(1);
       return;
     }
+     console.log('='.repeat(80));
+    console.log('FETCH ITEM HISTORY DEBUG');
+    console.log('Item ID:', itemId);
+    console.log('Start Date (param):', startDate);
+    console.log('End Date (param):', endDate);
+    console.log('='.repeat(80));
     
     
     
     try {
       // Default to wide date range if not provided
-      let start = startDate || formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 10)));
+      let start = startDate || formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 20)));
       let end = endDate || formatDate(today);
       
-      console.log('Using date range:', start, 'to', end);
+      console.log('Computed date range:', start, 'to', end);
+      console.log('Today:', formatDate(today));
       
       // Fetch ALL pages like the Filter tab does - this is critical!
       let allData = [];
@@ -311,7 +318,8 @@ const Inventory = () => {
         }
       }
       
-      console.log('Total records fetched:', allData.length);
+      console.log('Total records fetched from all pages:', allData.length);
+      console.log('Sample of all data (first 3):', allData.slice(0, 3));
       
       // Extract available dates from history
       const dates = filtered.map(r => r.log_date).filter(d => d);

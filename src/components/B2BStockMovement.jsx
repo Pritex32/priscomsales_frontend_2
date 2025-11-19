@@ -725,18 +725,7 @@ const B2BStockMovement = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {loading ? 'Processing...' : 'Transfer Stock'}
-                </button>
-              </div>
-            </form>
-          )}
-          {/* Item Selection Section */}
+              {/* Item Selection Section */}
               <div className="border-t border-gray-200 pt-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">Select Items to Transfer</h3>
@@ -879,7 +868,6 @@ const B2BStockMovement = () => {
             </form>
           )}
 
-
           {/* Customer Sale Form */}
           {activeTab === 'customer_sale' && (
             <form onSubmit={handleCustomerSale} className="space-y-6">
@@ -903,7 +891,6 @@ const B2BStockMovement = () => {
                     </select>
                   </div>
                 </div>
-
 
                 {/* Issued By */}
                 <div>

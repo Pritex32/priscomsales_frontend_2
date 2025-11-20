@@ -320,28 +320,54 @@ const Inventory = () => {
       
       console.log('Total records fetched from all pages:', allData.length);
       console.log('Sample of all data (first 3):', allData.slice(0, 3));
+      // Filter by item_id on frontend
+      const filtered = allData.filter(r => r.item_id === Number(itemId));
+      console.log('Records matching item_id', itemId, ':', filtered.length);
+      console.log('Filtered records:', filtered);
+      
+      // Sort by date descending (most recent first)
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.log_date || '');
+        const dateB = new Date(b.log_date || '');
+        return dateB - dateA;
+      });
+      
+      setItemHistory(filtered);
       
       // Extract available dates from history
       const dates = filtered.map(r => r.log_date).filter(d => d);
       setAvailableDates(dates);
-      
-      // Set the most recent date as default
+      console.log('Available dates:', dates);
       
       // Set the most recent date as default
       if (dates.length > 0) {
-        setAdjustDate(dates[0]);
-        // Set current record for the most recent date
-        const record = filtered.find(r => r.log_date === dates[0]);
+        const mostRecentDate = dates[0];
+        const record = filtered.find(r => r.log_date === mostRecentDate);
+        console.log('Setting most recent date:', mostRecentDate);
+        console.log('Found record for date:', record);
+        
+        setAdjustDate(mostRecentDate);
         setCurrentRecord(record);
-        // Pre-fill with current value
+        
         if (record) {
-          setAdjustQty(record.supplied_quantity || 0);
+          // Pre-fill quantity based on current action
+          if (adjustAction === 'supply') {
+            setAdjustQty(record.supplied_quantity || 0);
+          } else if (adjustAction === 'stockout') {
+            setAdjustQty(record.stock_out || 0);
+          } else if (adjustAction === 'return') {
+            setAdjustQty(record.return_quantity || 0);
+          }
+          console.log('Pre-filled quantity:', record.supplied_quantity || 0);
         }
       } else {
+        console.log('No history found for this item in date range');
         setAdjustDate('');
         setCurrentRecord(null);
+        setAdjustQty('');
       }
     } catch (e) {
+      console.error('Error fetching item history:', e);
       setItemHistory([]);
       setAvailableDates([]);
       setAdjustDate('');
@@ -369,7 +395,7 @@ const Inventory = () => {
     
     try {
       if (!adjustItemId) {
-        console.error('No item selected');
+        const errorMsg = 'Please select an item';
         console.error('No item selected');
         setError(errorMsg);
         toast.error(errorMsg);
@@ -378,7 +404,7 @@ const Inventory = () => {
       }
       
       if (!adjustDate) {
-        console.error('No date selected');
+        const errorMsg = 'Item has no history. Please select an item with existing records.';
         console.error('No date selected');
         setError(errorMsg);
         toast.error(errorMsg);
@@ -389,6 +415,7 @@ const Inventory = () => {
       // Allow 0 as a valid value - only reject if truly empty/invalid
       if (adjustQty === '' || adjustQty === null || adjustQty === undefined) {
         console.error('Invalid quantity:', adjustQty);
+        setError('Please enter a quantity (0 or greater)');
         toast.error('Please enter a quantity (0 or greater)');
         setLoading(false);
         return;
@@ -398,6 +425,7 @@ const Inventory = () => {
       // Check if it's a valid number and >= 0 (allow 0)
       if (isNaN(qtyNum) || qtyNum < 0) {
         console.error('Invalid quantity:', adjustQty);
+        setError('Please enter a valid quantity (0 or greater)');
         toast.error('Please enter a valid quantity (0 or greater)');
         setLoading(false);
         return;
@@ -503,6 +531,7 @@ const Inventory = () => {
       }
       
       setError(errorMsg);
+      toast.error(errorMsg);
       // Also show error on main page
       setTimeout(() => {
         setShowAdjustModal(false);
@@ -972,7 +1001,7 @@ const Inventory = () => {
               )}
 
               {/* Current Values Display */}
-              {currentRecord && (
+              {adjustDate && currentRecord && (
                 <div className="bg-blue-50 p-3 rounded border border-blue-200">
                   <h4 className="font-medium text-sm mb-2 text-blue-900">Current values for {adjustDate}</h4>
                   <div className="grid grid-cols-3 gap-2 text-sm">
@@ -993,6 +1022,19 @@ const Inventory = () => {
                     <span className="text-gray-600">Closing Balance:</span>
                     <span className="font-bold ml-1">{currentRecord.closing_balance || 0}</span>
                   </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Item ID: {currentRecord.item_id} | Date: {currentRecord.log_date}
+                  </div>
+                </div>
+              )}
+              
+              {/* Debug info - shows if data is loaded but not displaying */}
+              {adjustItemId && itemHistory.length > 0 && !currentRecord && (
+                <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ Debug: {itemHistory.length} records loaded but no current record selected.
+                    {adjustDate ? `Selected date: ${adjustDate}` : 'No date selected yet.'}
+                  </p>
                 </div>
               )}
 
@@ -1061,27 +1103,40 @@ const Inventory = () => {
               {/* Action Type */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Select field to edit</label>
-                <select 
-                  value={adjustAction} 
+                <select
+                  value={adjustAction}
                   onChange={e => {
-                    setAdjustAction(e.target.value);
+                    const newAction = e.target.value;
+                    console.log('Action changed to:', newAction);
+                    console.log('Current record:', currentRecord);
+                    setAdjustAction(newAction);
                     // Update quantity field with current value for selected action
                     if (currentRecord) {
-                      if (e.target.value === 'supply') {
-                        setAdjustQty(currentRecord.supplied_quantity || 0);
-                      } else if (e.target.value === 'stockout') {
-                        setAdjustQty(currentRecord.stock_out || 0);
-                      } else if (e.target.value === 'return') {
-                        setAdjustQty(currentRecord.return_quantity || 0);
+                      let newQty = 0;
+                      if (newAction === 'supply') {
+                        newQty = currentRecord.supplied_quantity || 0;
+                      } else if (newAction === 'stockout') {
+                        newQty = currentRecord.stock_out || 0;
+                      } else if (newAction === 'return') {
+                        newQty = currentRecord.return_quantity || 0;
                       }
+                      console.log('Setting quantity to:', newQty);
+                      setAdjustQty(newQty);
+                    } else {
+                      console.log('No current record available');
+                      setAdjustQty('');
                     }
-                  }} 
+                  }}
                   className="w-full border rounded px-3 py-2"
+                  disabled={!adjustDate || !currentRecord}
                 >
                   <option value="supply">Supplied Quantity</option>
                   <option value="stockout">Stock Out</option>
                   <option value="return">Return Quantity</option>
                 </select>
+                {(!adjustDate || !currentRecord) && (
+                  <p className="text-xs text-gray-500 mt-1">Select an item and date first</p>
+                )}
               </div>
 
               {/* Quantity */}

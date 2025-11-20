@@ -41,12 +41,13 @@ const Inventory = () => {
   const [returnQty, setReturnQty] = useState(1);
   const [actionMsg, setActionMsg] = useState('');
 
-  // Filter state
-  const [filterStart, setFilterStart] = useState(formatDate(today));
-  const [filterEnd, setFilterEnd] = useState(formatDate(today));
+ // Filter state
+  const [filterStart, setFilterStart] = useState('');
+  const [filterEnd, setFilterEnd] = useState('');
   const [filterItem, setFilterItem] = useState('');
   const [filterKeyword, setFilterKeyword] = useState('');
   const [filterRows, setFilterRows] = useState([]);
+
 
   // Reports state
   const [period, setPeriod] = useState('Monthly');
@@ -717,14 +718,19 @@ const Inventory = () => {
 
       {tab === 'Filter' && (
         <div className="space-y-3">
+          <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 mb-3">
+            <p className="text-sm text-blue-900">
+              <strong>Tip:</strong> Leave dates empty to see all history for an item. Use date range to narrow results.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="block text-sm text-gray-600">Start date</label>
-              <input type="date" value={filterStart} onChange={e=>setFilterStart(e.target.value)} className="border rounded px-3 py-2" />
+              <label className="block text-sm text-gray-600">Start date (optional)</label>
+              <input type="date" value={filterStart} onChange={e=>setFilterStart(e.target.value)} className="border rounded px-3 py-2" placeholder="yyyy-mm-dd" />
             </div>
             <div>
-              <label className="block text-sm text-gray-600">End date</label>
-              <input type="date" value={filterEnd} onChange={e=>setFilterEnd(e.target.value)} className="border rounded px-3 py-2" />
+              <label className="block text-sm text-gray-600">End date (optional)</label>
+              <input type="date" value={filterEnd} onChange={e=>setFilterEnd(e.target.value)} className="border rounded px-3 py-2" placeholder="yyyy-mm-dd" />
             </div>
             <div>
               <label className="block text-sm text-gray-600">Item (type to search)</label>
@@ -743,10 +749,10 @@ const Inventory = () => {
               </datalist>
             </div>
             <div>
-              <label className="block text-sm text-gray-600">Keyword</label>
+              <label className="block text-sm text-gray-600">Keyword (optional)</label>
               <input value={filterKeyword} onChange={e=>setFilterKeyword(e.target.value)} className="border rounded px-3 py-2" placeholder="e.g. makeup" />
             </div>
-            <button onClick={() => handleApplyFilter(1)} className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50" disabled={loading}>Apply</button>
+            <button onClick={() => handleApplyFilter(1)} className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50" disabled={loading}>Apply Filter</button>
           </div>
 
           <div className="bg-white rounded shadow p-4 overflow-auto">

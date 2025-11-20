@@ -298,60 +298,46 @@ const Settings = () => {
       }
 
       // Check if script already exists
-      const existingScript = document.querySelector('script[src*="mono"]');
+      const existingScript = document.querySelector('script[src="https://connect.mono.co/connect.js"]');
       if (existingScript) {
         console.log('DEBUG: Mono script already in DOM, waiting for it to load');
         waitForMono().then(resolve);
         return;
       }
 
-      const tryLoad = (src, onFail) => {
-        console.log('DEBUG: Loading Mono script:', src);
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.type = 'text/javascript';
+      // Load the official Mono Connect script
+      console.log('DEBUG: Loading official Mono Connect script');
+      const script = document.createElement('script');
+      script.src = 'https://connect.mono.co/connect.js';
+      script.async = true;
+      script.type = 'text/javascript';
+      
+      script.onload = async () => {
+        console.log('DEBUG: Mono script onload event fired');
         
-        s.onload = async () => {
-          console.log('DEBUG: Mono script onload event fired from', src);
-          
-          // Wait for MonoConnect to be available
-          const ok = await waitForMono();
-          if (ok) {
-            console.log('DEBUG: MonoConnect successfully loaded and available');
-            resolve(true);
-          } else {
-            console.error('DEBUG: MonoConnect script loaded but window.MonoConnect not available');
-            if (onFail) onFail();
-            else resolve(false);
-          }
-        };
-        
-        s.onerror = (e) => {
-          console.error('DEBUG: Mono script onerror from', src, e);
-          // Remove failed script
-          if (s.parentNode) {
-            s.parentNode.removeChild(s);
-          }
-          if (onFail) onFail();
-          else resolve(false);
-        };
-        
-        document.head.appendChild(s);
-      };
-
-      // Try the correct Mono Connect URL
-      console.log('DEBUG: Starting Mono script load sequence');
-      tryLoad('https://connect.mono.co/connect.js', () => {
-        console.log('DEBUG: Primary URL failed, trying CDN fallback');
-        tryLoad('https://cdn.mono.co/v1/connect.js', () => {
-          console.error('DEBUG: Both Mono script URLs failed');
+        // Wait for MonoConnect to be available
+        const ok = await waitForMono();
+        if (ok) {
+          console.log('DEBUG: MonoConnect successfully loaded and available');
+          resolve(true);
+        } else {
+          console.error('DEBUG: MonoConnect script loaded but window.MonoConnect not available');
           resolve(false);
-        });
-      });
+        }
+      };
+      
+      script.onerror = (e) => {
+        console.error('DEBUG: Failed to load Mono Connect script', e);
+        // Remove failed script
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+        resolve(false);
+      };
+      
+      document.head.appendChild(script);
     });
   };
-
 
   const handleGrantAccess = () => {
     if (!monoAccessCode.trim()) {

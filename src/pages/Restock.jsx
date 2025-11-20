@@ -476,8 +476,15 @@ try {
   };
   const handleRestockSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     
     if (!validateRestockForm()) return;
+    
+    // Prevent double submission
+    if (submitting) {
+      console.log('Already submitting, ignoring duplicate submission');
+      return;
+    }
     
     setSubmitting(true);
     
@@ -1117,25 +1124,7 @@ try {
             Refresh
           </button>
           
-          <button
-            onClick={testApiConnection}
-            disabled={apiStatus === 'testing'}
-            className={`px-4 py-2 rounded-lg flex items-center ${
-              apiStatus === 'connected' ? 'bg-green-500 hover:bg-green-600' :
-              apiStatus === 'partial' ? 'bg-yellow-500 hover:bg-yellow-600' :
-              apiStatus === 'auth_failed' ? 'bg-orange-500 hover:bg-orange-600' :
-              apiStatus === 'failed' ? 'bg-red-500 hover:bg-red-600' :
-              'bg-gray-500 hover:bg-gray-600'
-            } text-white disabled:opacity-50`}
-          >
-            <AlertCircle className="w-4 h-4 mr-2" />
-            {apiStatus === 'testing' ? 'Testing...' : 
-             apiStatus === 'connected' ? 'API OK' :
-             apiStatus === 'partial' ? 'API Partial' :
-             apiStatus === 'auth_failed' ? 'Auth Failed' :
-             apiStatus === 'failed' ? 'API Failed' :
-             'Test API'}
-          </button>
+         
         </div>
       </div>
       

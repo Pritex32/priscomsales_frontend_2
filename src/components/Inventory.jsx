@@ -517,21 +517,22 @@ const Inventory = () => {
       console.error('Request:', e?.request);
       console.error('Config:', e?.config);
       
-      let errorMsg = 'Failed to adjust inventory';
+      let errorMessage = 'Failed to adjust inventory';
+      
       
       if (e?.response) {
         // Server responded with error
-        errorMsg = e.response.data?.detail || `Server error: ${e.response.status}`;
+        errorMessage = e.response.data?.detail || `Server error: ${e.response.status}`;
       } else if (e?.request) {
         // Request made but no response
-        errorMsg = 'Network error: Cannot reach server. Is the backend running on ${REACT_APP_API_URL}?';
+        errorMessage = 'Network error: Cannot reach server. Is the backend running on ${REACT_APP_API_URL}?';
       } else {
         // Something else happened
-        errorMsg = e?.message || 'Unknown error occurred';
+        errorMessage = e?.message || 'Unknown error occurred';
       }
       
-      setError(errorMsg);
-      toast.error(errorMsg);
+      setError(errorMessage);
+      toast.error(errorMessage);
       // Also show error on main page
       setTimeout(() => {
         setShowAdjustModal(false);

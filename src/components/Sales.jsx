@@ -1880,9 +1880,109 @@ const Sales = () => {
               </p>
             </div>
           )}
-          <Table data={rows} page={currentPage} setPage={setCurrentPage} />
+          {/* Sales List Table with Inline Pagination */}
+          <div className="bg-white rounded shadow p-4">
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 px-3">Customer</th>
+                    <th className="py-2 px-3">Item</th>
+                    <th className="py-2 px-3">Qty</th>
+                    <th className="py-2 px-3">Unit</th>
+                    <th className="py-2 px-3">Total</th>
+                    <th className="py-2 px-3">Status</th>
+                    <th className="py-2 px-3">Method</th>
+                    {canDeleteSales && <th className="py-2 px-3">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map((row, idx) => (
+                    <tr key={row.sale_id || idx} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-3">{row.sale_date || row.date || ''}</td>
+                      <td className="py-2 px-3">{row.customer_name || 'Walk-in Customer'}</td>
+                      <td className="py-2 px-3">{row.item_name || 'Unknown Item'}</td>
+                      <td className="py-2 px-3">{row.quantity ?? ''}</td>
+                      <td className="py-2 px-3">₦{Number(row.unit_price || 0).toLocaleString()}</td>
+                      <td className="py-2 px-3">₦{Number(row.total_amount || 0).toLocaleString()}</td>
+                      <td className="py-2 px-3 capitalize">{row.payment_status || ''}</td>
+                      <td className="py-2 px-3 capitalize">{row.payment_method || ''}</td>
+                      {canDeleteSales && (
+                        <td className="py-2 px-3">
+                          <button
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('Delete clicked for sale_id:', row.sale_id);
+                              console.log('Full row data:', row);
+                              if (row.sale_id) {
+                                await deleteSale(row.sale_id);
+                              } else {
+                                console.error('No sale_id found in row:', row);
+                                setError('Cannot delete: Invalid sale ID');
+                                toast.error('Cannot delete: Invalid sale ID');
+                              }
+                            }}
+                            disabled={loading || !row.sale_id}
+                            className="px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                            title="Delete Sale"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={canDeleteSales ? "9" : "8"} className="py-4 text-center text-gray-500">No records found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            {rows.length > recordsPerPage && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-gray-600">
+                  Showing {((currentPage - 1) * recordsPerPage) + 1} to {Math.min(currentPage * recordsPerPage, rows.length)} of {rows.length} records
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const newPage = Math.max(1, currentPage - 1);
+                      console.log('Previous clicked: page', currentPage, '→', newPage);
+                      setCurrentPage(newPage);
+                    }}
+                    disabled={currentPage === 1 || loading}
+                    className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600">
+                    Page {currentPage} of {Math.ceil(rows.length / recordsPerPage)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const newPage = Math.min(Math.ceil(rows.length / recordsPerPage), currentPage + 1);
+                      console.log('Next clicked: page', currentPage, '→', newPage);
+                      setCurrentPage(newPage);
+                    }}
+                    disabled={currentPage === Math.ceil(rows.length / recordsPerPage) || loading}
+                    className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+          
 
       {tab === 'Add Sale' && (
         <div className="bg-white rounded shadow p-6 space-y-4">

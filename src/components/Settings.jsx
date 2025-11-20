@@ -22,6 +22,12 @@ const Settings = () => {
   const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [monoAccessCode, setMonoAccessCode] = useState('');
   const [monoLoading, setMonoLoading] = useState(false);
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [accountDetails, setAccountDetails] = useState({
+    accountName: '',
+    accountNumber: '',
+    bankName: ''
+  });
   const MONO_PUBLIC_KEY = process.env.REACT_APP_MONO_PUBLIC_KEY || (window.MONO_PUBLIC_KEY || 'test_pk_oo68ydjramhiz7d2ojlm');
 
   // Company/Receipt Customization State
@@ -347,12 +353,23 @@ const Settings = () => {
   };
 
 
+  const handleGrantAccess = () => {
+    if (!monoAccessCode.trim()) {
+      toast.error('Please enter your access code');
+      return;
+    }
+    // Verify access code (you can add backend verification here if needed)
+    setAccessGranted(true);
+    toast.success('Access granted! Please fill in your account details.');
+  };
+
   const handleMonoConnect = async () => {
     console.log('DEBUG: Initiating Mono Connect, access_code provided?', !!monoAccessCode, 'publicKeyPresent?', !!MONO_PUBLIC_KEY);
     setError(''); setSuccess('');
     
-    if (!monoAccessCode.trim()) {
-      toast.error('Please enter your access code');
+    // Validate account details
+    if (!accountDetails.accountName.trim() || !accountDetails.accountNumber.trim() || !accountDetails.bankName.trim()) {
+      toast.error('Please fill in all account details');
       return;
     }
 
@@ -384,11 +401,19 @@ const Settings = () => {
         onSuccess: function(response) {
           console.log('DEBUG: Mono onSuccess callback triggered with code');
           const code = response.code;
-          api.post('/settings/mono/link', { code: code, access_code: monoAccessCode })
+          api.post('/settings/mono/link', {
+            code: code,
+            access_code: monoAccessCode,
+            account_name: accountDetails.accountName,
+            account_number: accountDetails.accountNumber,
+            bank_name: accountDetails.bankName
+          })
             .then(function(resp) {
               console.log('DEBUG: /settings/mono/link response:', resp.status, resp.data);
               toast.success(resp.data?.msg || 'Account successfully linked and secured with your access code.');
               setMonoAccessCode('');
+              setAccessGranted(false);
+              setAccountDetails({ accountName: '', accountNumber: '', bankName: '' });
               return loadLinkedAccounts();
             })
             .catch(function(e) {
@@ -713,7 +738,7 @@ const Settings = () => {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
                 <strong>Note:</strong> Make sure you have a stable internet connection. If you encounter issues, try:
                 <ul className="list-disc ml-5 mt-1">
@@ -723,27 +748,94 @@ const Settings = () => {
                 </ul>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Access Code</label>
-                <input
-                  value={monoAccessCode}
-                  onChange={e => setMonoAccessCode(e.target.value)}
-                  className="border rounded px-3 py-2 w-full"
-                  placeholder="Enter your access code"
-                  disabled={monoLoading}
-                />
-                <div className="text-xs text-gray-500 mt-1">Your access code will be verified before linking your account.</div>
-              </div>
+              {/* Step 1: Enter Access Code */}
+              {!accessGranted ? (
+                <div className="space-y-3 border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                  <h3 className="font-semibold text-blue-900">Step 1: Enter Access Code</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Access Code</label>
+                    <input
+                      value={monoAccessCode}
+                      onChange={e => setMonoAccessCode(e.target.value)}
+                      className="border rounded px-3 py-2 w-full"
+                      placeholder="Enter your access code"
+                      disabled={monoLoading}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">Your access code will be verified before linking your account.</div>
+                  </div>
+                  
+                  <button
+                    onClick={handleGrantAccess}
+                    disabled={monoLoading || !monoAccessCode.trim()}
+                    className="px-6 py-3 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Grant Access
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Step 2: Add Account Details */}
+                  <div className="space-y-3 border-2 border-green-200 rounded-lg p-4 bg-green-50">
+                    <h3 className="font-semibold text-green-900">Step 2: Add Account Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                        <input
+                          value={accountDetails.accountName}
+                          onChange={e => setAccountDetails({...accountDetails, accountName: e.target.value})}
+                          className="border rounded px-3 py-2 w-full"
+                          placeholder="Enter account name"
+                          disabled={monoLoading}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                        <input
+                          value={accountDetails.accountNumber}
+                          onChange={e => setAccountDetails({...accountDetails, accountNumber: e.target.value})}
+                          className="border rounded px-3 py-2 w-full"
+                          placeholder="Enter account number"
+                          disabled={monoLoading}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                        <input
+                          value={accountDetails.bankName}
+                          onChange={e => setAccountDetails({...accountDetails, bankName: e.target.value})}
+                          className="border rounded px-3 py-2 w-full"
+                          placeholder="Enter bank name"
+                          disabled={monoLoading}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Connect Mono POS */}
+                  <div className="space-y-3 border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                    <h3 className="font-semibold text-purple-900">Step 3: Connect to Mono POS</h3>
+                    <button
+                      onClick={handleMonoConnect}
+                      disabled={monoLoading || !accountDetails.accountName.trim() || !accountDetails.accountNumber.trim() || !accountDetails.bankName.trim()}
+                      className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {monoLoading ? 'Connecting...' : 'Connect Mono POS'}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setAccessGranted(false);
+                      setAccountDetails({ accountName: '', accountNumber: '', bankName: '' });
+                    }}
+                    className="text-sm text-gray-600 hover:text-gray-800 underline"
+                  >
+                    ← Back to Access Code
+                  </button>
+                </>
+              )}
               
-              <button
-                onClick={handleMonoConnect}
-                disabled={monoLoading || !monoAccessCode.trim()}
-                className="px-6 py-3 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {monoLoading ? 'Connecting...' : 'Connect via Mono'}
-              </button>
-              
-              <div className="text-xs text-gray-500 space-y-1">
+              <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
                 <div>Mono Public Key: {MONO_PUBLIC_KEY ? '✓ Loaded' : '✗ Missing (set REACT_APP_MONO_PUBLIC_KEY)'}</div>
                 <div>Script Status: {window.MonoConnect ? '✓ Ready' : '⏳ Will load when needed'}</div>
               </div>

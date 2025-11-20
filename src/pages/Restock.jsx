@@ -978,7 +978,7 @@ try {
     };
     setNewItemForm(prev => ({
       ...prev,
-      selected_items: [...prev.selected_items, newItem]
+      selected_items: [newItem, ...prev.selected_items]
     }));
   };
 

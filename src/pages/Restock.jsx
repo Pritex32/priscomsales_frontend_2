@@ -439,7 +439,7 @@ try {
       setShowNewItemModal(false);
       resetNewItemForm();
       await fetchWarehouses();
-      await fetchPurchaseData();
+     
 
     } catch (error) {
       console.log('='.repeat(80));
@@ -621,7 +621,7 @@ try {
       toast.info('Refreshing purchases...');
       setShowRestockModal(false);
       resetRestockForm();
-      await fetchPurchaseData();
+     
       
     } catch (error) {
       handleError('Failed to process restock', error);

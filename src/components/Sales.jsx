@@ -1669,6 +1669,12 @@ const Sales = () => {
     const paginatedData = data.slice(startIdx, endIdx);
     const totalPages = Math.ceil(data.length / recordsPerPage);
 
+    // Handle page change with proper state update
+    const handlePageChange = (newPage) => {
+      console.log('Table pagination: changing from page', page, 'to', newPage);
+      setPage(newPage);
+    };
+
     return (
       <div className="bg-white rounded shadow p-4">
         <div className="overflow-auto">
@@ -1700,15 +1706,17 @@ const Sales = () => {
                   {canDeleteSales && (
                     <td className="py-2 px-3">
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           console.log('Delete clicked for sale_id:', row.sale_id);
+                          console.log('Full row data:', row);
                           if (row.sale_id) {
-                            deleteSale(row.sale_id);
+                            await deleteSale(row.sale_id);
                           } else {
                             console.error('No sale_id found in row:', row);
                             setError('Cannot delete: Invalid sale ID');
+                            toast.error('Cannot delete: Invalid sale ID');
                           }
                         }}
                         disabled={loading || !row.sale_id}
@@ -1736,8 +1744,8 @@ const Sales = () => {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
+                onClick={() => handlePageChange(Math.max(1, page - 1))}
+                disabled={page === 1 || loading}
                 className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous

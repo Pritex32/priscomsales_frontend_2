@@ -469,7 +469,45 @@ try {
         }
       }
       console.log('='.repeat(80));
-      handleError('Failed to add items', error);
+      // Check for item already exists error
+      let errorMessage = '';
+      if (error?.response?.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.details) {
+          if (Array.isArray(error.response.data.details)) {
+            errorMessage = error.response.data.details.join(', ');
+          } else if (typeof error.response.data.details === 'string') {
+            errorMessage = error.response.data.details;
+          }
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      // Check if this is an "already exists" error
+      if (errorMessage && errorMessage.includes('already exists in warehouses')) {
+        // Parse the warehouse names from the error message
+        const warehouseMatch = errorMessage.match(/warehouses=\[([^\]]+)\]/);
+        if (warehouseMatch) {
+          const warehouses = warehouseMatch[1].split(',').map(w => w.trim().replace(/'/g, ''));
+          toast.warning(`⚠️ Item already exists in: ${warehouses.join(', ')}`, {
+            autoClose: 8000,
+            style: { backgroundColor: '#fef3c7', color: '#92400e' }
+          });
+        } else {
+          toast.warning('⚠️ Item already exists in some warehouses', {
+            autoClose: 6000,
+            style: { backgroundColor: '#fef3c7', color: '#92400e' }
+          });
+        }
+      } else {
+        handleError('Failed to add items', error);
+      }
     } finally {
       setSubmitting(false);
     }

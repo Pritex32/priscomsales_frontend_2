@@ -436,6 +436,21 @@ const B2BStockMovement = () => {
       toast.error('Export failed');
     }
   };
+  
+  const handleDeleteMovement = async (stockId) => {
+    if (!window.confirm('Are you sure you want to delete this stock movement? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/b2b/movements/${stockId}`);
+      toast.success('Stock movement deleted successfully');
+      loadMovements(); // Reload the movements list
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete movement');
+    }
+  };
+
 
   // Helper functions for multiple item selection
   const handleAddItem = (item) => {
@@ -474,24 +489,21 @@ const B2BStockMovement = () => {
   };
 
   const handleSelectAll = () => {
-    const items = activeTab === 'warehouse_transfer' ? sourceInventoryItems : inventoryItems;
-    const newItems = items.filter(item => !selectedItems.find(si => si.item_id === item.item_id))
-      .map(item => ({
-        item_id: item.item_id,
-        item_name: item.item_name,
-        item_name_to: item.item_name,
-        quantity: 1,
-        stock: item.closing_balance
-      }));
-    
+    const newItems = getFilteredItems().map(item => ({
+      item_id: item.item_id,
+      item_name: item.item_name,
+      item_name_to: item.item_name,
+      quantity: 1,
+      stock: item.closing_balance
+    }));
+
     if (newItems.length > 0) {
       setSelectedItems(prev => [...prev, ...newItems]);
       toast.success(`Added ${newItems.length} item(s)`);
     } else {
-      toast.info('All items already selected');
+      toast.info('All matching items already selected');
     }
   };
-
   const handleClearAll = () => {
     setSelectedItems([]);
     toast.info('Cleared all items');
@@ -525,22 +537,21 @@ const B2BStockMovement = () => {
   };
 
   const handleSelectAllSource = () => {
-    const newItems = sourceInventoryItems.filter(item => !selectedSourceItems.find(si => si.item_id === item.item_id))
-      .map(item => ({
-        item_id: item.item_id,
-        item_name: item.item_name,
-        quantity: 1,
-        stock: item.closing_balance
-      }));
-    
+    const newItems = getFilteredSourceItems().map(item => ({
+      item_id: item.item_id,
+      item_name: item.item_name,
+      quantity: 1,
+      stock: item.closing_balance
+    }));
+
     if (newItems.length > 0) {
       setSelectedSourceItems(prev => [...prev, ...newItems]);
       toast.success(`Added ${newItems.length} source item(s)`);
     } else {
-      toast.info('All source items already selected');
+      toast.info('All matching source items already selected');
     }
   };
-
+  
   const handleClearAllSource = () => {
     setSelectedSourceItems([]);
     toast.info('Cleared all source items');
@@ -574,22 +585,20 @@ const B2BStockMovement = () => {
   };
 
   const handleSelectAllDest = () => {
-    const newItems = destinationInventoryItems.filter(item => !selectedDestItems.find(si => si.item_id === item.item_id))
-      .map(item => ({
-        item_id: item.item_id,
-        item_name: item.item_name,
-        quantity: 1,
-        stock: item.closing_balance
-      }));
-    
+    const newItems = getFilteredDestItems().map(item => ({
+      item_id: item.item_id,
+      item_name: item.item_name,
+      quantity: 1,
+      stock: item.closing_balance
+    }));
+
     if (newItems.length > 0) {
       setSelectedDestItems(prev => [...prev, ...newItems]);
       toast.success(`Added ${newItems.length} destination item(s)`);
     } else {
-      toast.info('All destination items already selected');
+      toast.info('All matching destination items already selected');
     }
   };
-
   const handleClearAllDest = () => {
     setSelectedDestItems([]);
     toast.info('Cleared all destination items');
@@ -598,24 +607,31 @@ const B2BStockMovement = () => {
   // Filter items based on search term
   const getFilteredItems = () => {
     const items = activeTab === 'warehouse_transfer' ? sourceInventoryItems : inventoryItems;
-    if (!searchTerm) return items;
-    return items.filter(item =>
-      item.item_name.toLowerCase().includes(searchTerm.toLowerCase())
+    const selectedItemIds = selectedItems.map(item => item.item_id);
+    const filtered = items.filter(item =>
+      !selectedItemIds.includes(item.item_id) &&
+      (!searchTerm || item.item_name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+    return filtered;
   };
 
+
   const getFilteredSourceItems = () => {
-    if (!sourceSearchTerm) return sourceInventoryItems;
-    return sourceInventoryItems.filter(item =>
-      item.item_name.toLowerCase().includes(sourceSearchTerm.toLowerCase())
+    const selectedSourceIds = selectedSourceItems.map(item => item.item_id);
+    const filtered = sourceInventoryItems.filter(item =>
+      !selectedSourceIds.includes(item.item_id) &&
+      (!sourceSearchTerm || item.item_name.toLowerCase().includes(sourceSearchTerm.toLowerCase()))
     );
+    return filtered;
   };
 
   const getFilteredDestItems = () => {
-    if (!destSearchTerm) return destinationInventoryItems;
-    return destinationInventoryItems.filter(item =>
-      item.item_name.toLowerCase().includes(destSearchTerm.toLowerCase())
+    const selectedDestIds = selectedDestItems.map(item => item.item_id);
+    const filtered = destinationInventoryItems.filter(item =>
+      !selectedDestIds.includes(item.item_id) &&
+      (!destSearchTerm || item.item_name.toLowerCase().includes(destSearchTerm.toLowerCase()))
     );
+    return filtered;
   };
 
   const getTransferTypeColor = (type) => {
@@ -1671,6 +1687,9 @@ const B2BStockMovement = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -1697,7 +1716,7 @@ const B2BStockMovement = () => {
                 if (filteredMovements.length === 0) {
                   return (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                         <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                         <p>{searchKeyword ? 'No matching movements found' : 'No movements found'}</p>
                       </td>
@@ -1747,6 +1766,15 @@ const B2BStockMovement = () => {
                           <span className="text-xs font-medium">{movement.status}</span>
                         </span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <button
+                        onClick={() => handleDeleteMovement(movement.stock_id)}
+                        className="text-red-600 hover:text-red-700 p-1 rounded"
+                        title="Delete movement"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ));

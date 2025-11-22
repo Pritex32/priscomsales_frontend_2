@@ -151,4 +151,24 @@ export const getUnverifiedGoods = async (page = 1, limit = 20) => {
   }
 };
 
+export const deleteExpense = async (expenseId) => {
+  try {
+    const response = await api.delete(`/admin/invoice/expenses/${expenseId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting expense:', error);
+    throw error;
+  }
+};
+
+export const deleteGoods = async (purchaseId) => {
+  try {
+    const response = await api.delete(`/admin/invoice/goods/${purchaseId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting goods:', error);
+    throw error;
+  }
+};
+
 export default api;

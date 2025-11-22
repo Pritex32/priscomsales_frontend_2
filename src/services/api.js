@@ -80,5 +80,75 @@ export const fetchTableData = async (tableType) => {
     throw error;
   }
 };
+// Admin Review API functions
+export const getLoginLogs = async (params = {}) => {
+  try {
+    const response = await api.get('/admin/login-logs', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching login logs:', error);
+    throw error;
+  }
+};
+
+export const getEmployees = async () => {
+  try {
+    const response = await api.get('/admin/employees');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    throw error;
+  }
+};
+
+export const getUnverifiedSales = async (page = 1, limit = 20) => {
+  try {
+    const response = await api.get('/admin/unverified/sales', { params: { page, limit } });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching unverified sales:', error);
+    throw error;
+  }
+};
+
+export const verifySale = async (saleId, verificationData) => {
+  try {
+    const response = await api.put(`/admin/verify/sales/${saleId}`, verificationData);
+    return response.data;
+  } catch (error) {
+    console.error('Error verifying sale:', error);
+    throw error;
+  }
+};
+
+export const deleteSale = async (saleId) => {
+  try {
+    const response = await api.delete(`/admin/invoice/sales/${saleId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting sale:', error);
+    throw error;
+  }
+};
+
+export const getUnverifiedExpenses = async (page = 1, limit = 20) => {
+  try {
+    const response = await api.get('/admin/unverified/expenses', { params: { page, limit } });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching unverified expenses:', error);
+    throw error;
+  }
+};
+
+export const getUnverifiedGoods = async (page = 1, limit = 20) => {
+  try {
+    const response = await api.get('/admin/unverified/goods', { params: { page, limit } });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching unverified goods:', error);
+    throw error;
+  }
+};
 
 export default api;

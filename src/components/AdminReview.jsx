@@ -9,7 +9,9 @@ import {
   verifySale,
   deleteSale,
   getUnverifiedExpenses,
-  getUnverifiedGoods
+  getUnverifiedGoods,
+  deleteExpense,
+  deleteGoods
 } from '../services/api';
 
 const AdminReview = () => {
@@ -169,8 +171,7 @@ const AdminReview = () => {
   const handleDeleteExpense = async (expenseId) => {
     if (!window.confirm('Delete expense?')) return;
     try {
-      // Note: Need to implement delete API call for expenses
-      setUnverifiedExpenses(prev => prev.filter(exp => exp.expense_id !== expenseId));
+      await deleteExpense(expenseId);
       toast.success('Expense deleted successfully!');
       // Refresh the current page data
       fetchUnverifiedExpenses();
@@ -190,8 +191,7 @@ const AdminReview = () => {
   const handleDeleteGoods = async (purchaseId) => {
     if (!window.confirm('Delete goods?')) return;
     try {
-      // Note: Need to implement delete API call for goods
-      setUnverifiedGoods(prev => prev.filter(goods => goods.purchase_id !== purchaseId));
+      await deleteGoods(purchaseId);
       toast.success('Goods deleted successfully!');
       // Refresh the current page data
       fetchUnverifiedGoods();
@@ -204,7 +204,7 @@ const AdminReview = () => {
   if (loading || permissionLoading) return <div className="flex justify-center items-center h-64">Loading...</div>;
 
   return (
-    <div className="space-y-6 p-6">
+  <div className="space-y-6 p-6">
       
       <div className="bg-white rounded-lg shadow p-6">
         <div className="mb-6">
@@ -282,10 +282,10 @@ const AdminReview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Unverified Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Sales */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Unverified Sales</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Sales</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full table-auto">
               <thead>
@@ -360,77 +360,9 @@ const AdminReview = () => {
           </div>
         </div>
 
-        {/* Unverified Expenses */}
+        {/* Goods Bought */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Unverified Expenses</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {unverifiedExpenses.map((exp) => (
-                  <tr key={exp.expense_id}>
-                    <td className="px-4 py-3 text-sm text-gray-900">{exp.vendor_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">₦{exp.total_amount?.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{exp.expense_date}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        exp.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {exp.payment_status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm space-x-2">
-                      <button
-                        onClick={() => handleVerifyExpense(exp.expense_id, 'Verified')}
-                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                      >
-                        Verify
-                      </button>
-                      <button
-                        onClick={() => handleDeleteExpense(exp.expense_id)}
-                        className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {/* Pagination for Expenses */}
-          <div className="flex justify-between items-center mt-4">
-            <button
-              onClick={() => setExpensesPage(prev => Math.max(1, prev - 1))}
-              disabled={expensesPage === 1}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-600">
-              Page {expensesPage} of {Math.ceil(expensesTotal / itemsPerPage)}
-            </span>
-            <button
-              onClick={() => setExpensesPage(prev => prev + 1)}
-              disabled={expensesPage >= Math.ceil(expensesTotal / itemsPerPage)}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-
-        {/* Unverified Goods */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Unverified Goods Bought</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Goods Bought</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full table-auto">
               <thead>
@@ -439,6 +371,7 @@ const AdminReview = () => {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice URL</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -449,13 +382,21 @@ const AdminReview = () => {
                     <td className="px-4 py-3 text-sm text-gray-900">{g.item_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">₦{g.total_cost?.toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{g.purchase_date}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {g.invoice_file_url ? (
+                        <a
+                          href={g.invoice_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          View Invoice
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">No invoice</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm space-x-2">
-                      <button
-                        onClick={() => handleVerifyGoods(g.purchase_id, 'Verified')}
-                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                      >
-                        Verify
-                      </button>
                       <button
                         onClick={() => handleDeleteGoods(g.purchase_id)}
                         className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
@@ -491,7 +432,83 @@ const AdminReview = () => {
         </div>
       </div>
 
-    </div>
+      {/* Expenses */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Expenses</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice URL</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {unverifiedExpenses.map((exp) => (
+                <tr key={exp.expense_id}>
+                  <td className="px-4 py-3 text-sm text-gray-900">{exp.vendor_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">₦{exp.total_amount?.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{exp.expense_date}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {exp.invoice_file_url ? (
+                      <a
+                        href={exp.invoice_file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        View Invoice
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">No invoice</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      exp.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {exp.payment_status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm space-x-2">
+                    <button
+                      onClick={() => handleDeleteExpense(exp.expense_id)}
+                      className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Pagination for Expenses */}
+        <div className="flex justify-between items-center mt-4">
+          <button
+            onClick={() => setExpensesPage(prev => Math.max(1, prev - 1))}
+            disabled={expensesPage === 1}
+            className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {expensesPage} of {Math.ceil(expensesTotal / itemsPerPage)}
+          </span>
+          <button
+            onClick={() => setExpensesPage(prev => prev + 1)}
+            disabled={expensesPage >= Math.ceil(expensesTotal / itemsPerPage)}
+            className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+  </div>
   );
 };
 
